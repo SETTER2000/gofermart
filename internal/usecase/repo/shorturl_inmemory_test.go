@@ -3,8 +3,8 @@ package repo
 import (
 	"context"
 	"fmt"
-	"github.com/SETTER2000/shorturl/config"
-	"github.com/SETTER2000/shorturl/internal/entity"
+	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/entity"
 	"sync"
 	"testing"
 )
@@ -12,12 +12,12 @@ import (
 func TestInMemory_Put(t *testing.T) {
 	type fields struct {
 		lock *sync.Mutex
-		m    map[string]entity.Shorturls
+		m    map[string]entity.Gofermarts
 		cfg  *config.Config
 	}
 	type args struct {
 		ctx context.Context
-		sh  *entity.Shorturl
+		sh  *entity.Gofermart
 	}
 	tests := []struct {
 		name       string
@@ -33,7 +33,7 @@ func TestInMemory_Put(t *testing.T) {
 			name: "positive test #1",
 			args: args{
 				ctx: context.Background(),
-				sh:  &entity.Shorturl{Slug: "qwerty1", UserID: "uid-1", URL: "https://example1.com", Del: false},
+				sh:  &entity.Gofermart{Slug: "qwerty1", UserID: "uid-1", URL: "https://example1.com", Del: false},
 			},
 			countUID:   1,
 			countShort: 1,
@@ -44,7 +44,7 @@ func TestInMemory_Put(t *testing.T) {
 			name: "positive test #2",
 			args: args{
 				ctx: context.Background(),
-				sh:  &entity.Shorturl{Slug: "qwerty2", UserID: "uid-2", URL: "https://example2.com", Del: false},
+				sh:  &entity.Gofermart{Slug: "qwerty2", UserID: "uid-2", URL: "https://example2.com", Del: false},
 			},
 			countUID:   2,
 			countShort: 1,
@@ -55,7 +55,7 @@ func TestInMemory_Put(t *testing.T) {
 			name: "positive test #3",
 			args: args{
 				ctx: context.Background(),
-				sh:  &entity.Shorturl{Slug: "qwerty3", UserID: "uid-2", URL: "https://example3.com", Del: false},
+				sh:  &entity.Gofermart{Slug: "qwerty3", UserID: "uid-2", URL: "https://example3.com", Del: false},
 			},
 			countUID:   2,
 			countShort: 2,
@@ -66,7 +66,7 @@ func TestInMemory_Put(t *testing.T) {
 			name: "positive test #4",
 			args: args{
 				ctx: context.Background(),
-				sh:  &entity.Shorturl{Slug: "qwerty4", UserID: "uid-2", URL: "https://example4.com", Del: false},
+				sh:  &entity.Gofermart{Slug: "qwerty4", UserID: "uid-2", URL: "https://example4.com", Del: false},
 			},
 			countUID:   2,
 			countShort: 3,
@@ -77,7 +77,7 @@ func TestInMemory_Put(t *testing.T) {
 			name: "update Del and URL #5",
 			args: args{
 				ctx: context.Background(),
-				sh:  &entity.Shorturl{Slug: "qwerty4", UserID: "uid-2", URL: "https://example5.com", Del: true},
+				sh:  &entity.Gofermart{Slug: "qwerty4", UserID: "uid-2", URL: "https://example5.com", Del: true},
 			},
 			countUID:   2,
 			countShort: 3,
@@ -87,7 +87,7 @@ func TestInMemory_Put(t *testing.T) {
 		},
 	}
 	s := &InMemory{
-		m: make(map[string]entity.Shorturls),
+		m: make(map[string]entity.Gofermarts),
 	}
 	for idx, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestInMemory_Put(t *testing.T) {
 			cSh := len(s.m[tt.UID])
 			if cSh != tt.countShort {
 				t.Errorf("Len shorts; expected: %v, actual: %v\n", tt.countShort, cSh)
-				fmt.Printf("List Shorturls: %v\n", s.m[tt.UID])
+				fmt.Printf("List Gofermarts: %v\n", s.m[tt.UID])
 			}
 			shorts := s.m[tt.UID]
 			if idx == 4 && tt.url != shorts[2].URL {

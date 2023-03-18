@@ -2,11 +2,11 @@
 package v1
 
 import (
-	"github.com/SETTER2000/shorturl/config"
-	"github.com/SETTER2000/shorturl/internal/usecase"
-	"github.com/SETTER2000/shorturl/internal/usecase/encryp"
-	"github.com/SETTER2000/shorturl/pkg/compress/gzip"
-	"github.com/SETTER2000/shorturl/pkg/log/logger"
+	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/usecase"
+	"github.com/SETTER2000/gofermart/internal/usecase/encryp"
+	"github.com/SETTER2000/gofermart/pkg/compress/gzip"
+	"github.com/SETTER2000/gofermart/pkg/log/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -16,12 +16,12 @@ import (
 
 // NewRouter -.
 // Swagger spec:
-// @title       Shorturl
+// @title       Gofermart
 // @description URL shortener server
 // @version     0.1.0
 // @host        localhost:8080
 // @BasePath    /
-func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Shorturl, cfg *config.Config) {
+func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *config.Config) {
 	headerTypes := []string{
 		"application/javascript",
 		"application/x-gzip",
@@ -64,6 +64,6 @@ func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Shorturl, cfg *co
 		r.Routes()
 	})
 	{
-		newShorturlRoutes(h, s, l, cfg)
+		newGofermartRoutes(h, s, l, cfg)
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/SETTER2000/shorturl/scripts"
+	"github.com/SETTER2000/gofermart/scripts"
 	"net/http"
 )
 

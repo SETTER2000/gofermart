@@ -2,7 +2,7 @@ package scripts
 
 import (
 	"fmt"
-	"github.com/SETTER2000/shorturl/config"
+	"github.com/SETTER2000/gofermart/config"
 	"hash/fnv"
 	"math/rand"
 	"os"
@@ -41,8 +41,8 @@ func UniqueString() string {
 }
 
 // GetHost формирует короткий URL
-func GetHost(cfg config.HTTP, shorturl string) string {
-	return fmt.Sprintf("%s/%s", cfg.BaseURL, shorturl)
+func GetHost(cfg config.HTTP, gofermart string) string {
+	return fmt.Sprintf("%s/%s", cfg.BaseURL, gofermart)
 }
 
 // CheckEnvironFlag проверка значения переменной окружения и одноименного флага

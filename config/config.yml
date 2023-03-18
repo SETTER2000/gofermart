@@ -1,5 +1,5 @@
 app:
-  name: 'shorturl'
+  name: 'gofermart'
   version: '0.14.0'
   access_token_name: 'user_id'
   expiration_time: '2023-03-31T15:04:05Z'
@@ -11,4 +11,4 @@ http:
 #  base_url: 'http://localhost:8080'
 logger:
   log_level: 'debug'
-  rollbar_env: 'shorturl'
+  rollbar_env: 'gofermart'

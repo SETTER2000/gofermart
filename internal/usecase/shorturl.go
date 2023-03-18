@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
-	"github.com/SETTER2000/shorturl/internal/entity"
+	"github.com/SETTER2000/gofermart/internal/entity"
 )
 
 var (
@@ -24,7 +24,7 @@ func New(r ShorturlRepo) *ShorturlUseCase {
 	}
 }
 
-func (uc *ShorturlUseCase) Shorten(ctx context.Context, sh *entity.Shorturl) (string, error) {
+func (uc *ShorturlUseCase) Shorten(ctx context.Context, sh *entity.Gofermart) (string, error) {
 	sh.UserID = ctx.Value(sh.Cookie.AccessTokenName).(string)
 	err := uc.repo.Post(ctx, sh)
 	if err != nil {
@@ -34,7 +34,7 @@ func (uc *ShorturlUseCase) Shorten(ctx context.Context, sh *entity.Shorturl) (st
 }
 
 // LongLink принимает длинный URL и возвращает короткий (PUT /api)
-func (uc *ShorturlUseCase) LongLink(ctx context.Context, sh *entity.Shorturl) (string, error) {
+func (uc *ShorturlUseCase) LongLink(ctx context.Context, sh *entity.Gofermart) (string, error) {
 	//sh.Slug = scripts.UniqueString()
 	sh.UserID = ctx.Value("access_token").(string)
 	err := uc.repo.Put(ctx, sh)
@@ -45,7 +45,7 @@ func (uc *ShorturlUseCase) LongLink(ctx context.Context, sh *entity.Shorturl) (s
 }
 
 // ShortLink принимает короткий URL и возвращает длинный (GET /api/{key})
-func (uc *ShorturlUseCase) ShortLink(ctx context.Context, sh *entity.Shorturl) (*entity.Shorturl, error) {
+func (uc *ShorturlUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
 	sh.UserID = ctx.Value("access_token").(string)
 	sh, err := uc.repo.Get(ctx, sh)
 	if err == nil {

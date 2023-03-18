@@ -3,17 +3,17 @@ package usecase
 
 import (
 	"context"
-	"github.com/SETTER2000/shorturl/internal/entity"
+	"github.com/SETTER2000/gofermart/internal/entity"
 )
 
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock.go
 
 type (
-	// Shorturl -.
-	Shorturl interface {
-		Shorten(context.Context, *entity.Shorturl) (string, error)
-		LongLink(context.Context, *entity.Shorturl) (string, error)
-		ShortLink(context.Context, *entity.Shorturl) (*entity.Shorturl, error)
+	// Gofermart -.
+	Gofermart interface {
+		Shorten(context.Context, *entity.Gofermart) (string, error)
+		LongLink(context.Context, *entity.Gofermart) (string, error)
+		ShortLink(context.Context, *entity.Gofermart) (*entity.Gofermart, error)
 		UserAllLink(ctx context.Context, u *entity.User) (*entity.User, error)
 		UserDelLink(ctx context.Context, u *entity.User) error
 		ReadService() error
@@ -22,9 +22,9 @@ type (
 
 	// ShorturlRepo -.
 	ShorturlRepo interface {
-		Post(context.Context, *entity.Shorturl) error
-		Put(context.Context, *entity.Shorturl) error
-		Get(context.Context, *entity.Shorturl) (*entity.Shorturl, error)
+		Post(context.Context, *entity.Gofermart) error
+		Put(context.Context, *entity.Gofermart) error
+		Get(context.Context, *entity.Gofermart) (*entity.Gofermart, error)
 		GetAll(context.Context, *entity.User) (*entity.User, error)
 		Delete(context.Context, *entity.User) error
 		Read() error

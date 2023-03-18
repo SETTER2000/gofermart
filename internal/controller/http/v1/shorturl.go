@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SETTER2000/shorturl/config"
-	"github.com/SETTER2000/shorturl/internal/entity"
-	"github.com/SETTER2000/shorturl/internal/usecase"
-	"github.com/SETTER2000/shorturl/internal/usecase/repo"
-	"github.com/SETTER2000/shorturl/pkg/log/logger"
-	"github.com/SETTER2000/shorturl/scripts"
+	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/entity"
+	"github.com/SETTER2000/gofermart/internal/usecase"
+	"github.com/SETTER2000/gofermart/internal/usecase/repo"
+	"github.com/SETTER2000/gofermart/pkg/log/logger"
+	"github.com/SETTER2000/gofermart/scripts"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"io"
@@ -22,12 +22,12 @@ import (
 )
 
 type shorturlRoutes struct {
-	s   usecase.Shorturl
+	s   usecase.Gofermart
 	l   logger.Interface
 	cfg *config.Config
 }
 
-func newShorturlRoutes(handler chi.Router, s usecase.Shorturl, l logger.Interface, cfg *config.Config) {
+func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interface, cfg *config.Config) {
 	sr := &shorturlRoutes{s, l, cfg}
 	handler.Route("/user", func(r chi.Router) {
 		r.Get("/urls", sr.urls)
@@ -42,7 +42,7 @@ func newShorturlRoutes(handler chi.Router, s usecase.Shorturl, l logger.Interfac
 // @Summary     Return short URL
 // @Description Redirect to long URL
 // @ID          ShortLink
-// @Tags  	    shorturl
+// @Tags  	    gofermart
 // @Accept      text
 // @Produce     text
 // @Success     307 {object} string
@@ -50,9 +50,9 @@ func newShorturlRoutes(handler chi.Router, s usecase.Shorturl, l logger.Interfac
 // @Router      /{key} [get]
 
 func (r *shorturlRoutes) shortLink(w http.ResponseWriter, req *http.Request) {
-	shorturl := chi.URLParam(req, "key")
-	data := entity.Shorturl{Config: r.cfg}
-	data.Slug = shorturl
+	gofermart := chi.URLParam(req, "key")
+	data := entity.Gofermart{Config: r.cfg}
+	data.Slug = gofermart
 	sh, err := r.s.ShortLink(req.Context(), &data)
 	if err != nil {
 		r.l.Error(err, "http - v1 - shortLink")
@@ -100,7 +100,7 @@ func (r *shorturlRoutes) connect(res http.ResponseWriter, req *http.Request) {
 // @Summary     Return short URL
 // @Description Redirect to long URL
 // @ID          longLink
-// @Tags  	    shorturl
+// @Tags  	    gofermart
 // @Accept      text
 // @Produce     text
 // @Success     201 {object} string
@@ -113,15 +113,15 @@ func (r *shorturlRoutes) longLink(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data := entity.Shorturl{Config: r.cfg}
+	data := entity.Gofermart{Config: r.cfg}
 	data.URL = string(body)
 	//data.URL, _ = scripts.Trim(string(body), "")
 	data.Slug = scripts.UniqueString()
 	//data.UserID = req.Context().Value("access_token").(string)
-	shorturl, err := r.s.LongLink(ctx, &data)
+	gofermart, err := r.s.LongLink(ctx, &data)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Shorturl{Config: r.cfg, URL: data.URL}
+			data2 := entity.Gofermart{Config: r.cfg, URL: data.URL}
 			//data2.URL = data.URL
 			sh, err := r.s.ShortLink(ctx, &data2)
 			if err != nil {
@@ -129,7 +129,7 @@ func (r *shorturlRoutes) longLink(res http.ResponseWriter, req *http.Request) {
 				http.Error(res, fmt.Sprintf("%v", err), http.StatusBadRequest)
 				return
 			}
-			shorturl = sh.Slug
+			gofermart = sh.Slug
 			res.Header().Set("Content-Type", http.DetectContentType(body))
 			res.WriteHeader(http.StatusConflict)
 		} else {
@@ -137,7 +137,7 @@ func (r *shorturlRoutes) longLink(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	d := scripts.GetHost(r.cfg.HTTP, shorturl)
+	d := scripts.GetHost(r.cfg.HTTP, gofermart)
 	res.Header().Set("Content-Type", http.DetectContentType(body))
 	res.WriteHeader(http.StatusCreated)
 	res.Write([]byte(d))
@@ -176,7 +176,7 @@ func (r *shorturlRoutes) urls(res http.ResponseWriter, req *http.Request) {
 // @Summary     Return JSON short URL
 // @Description Redirect to long URL
 // @ID          shorten
-// @Tags  	    shorturl
+// @Tags  	    gofermart
 // @Accept      json
 // @Produce     json
 // @Success     307 {object} string
@@ -184,8 +184,8 @@ func (r *shorturlRoutes) urls(res http.ResponseWriter, req *http.Request) {
 // @Router      /shorten [post]
 func (r *shorturlRoutes) shorten(res http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	data := entity.Shorturl{Config: r.cfg}
-	resp := entity.ShorturlResponse{}
+	data := entity.Gofermart{Config: r.cfg}
+	resp := entity.GofermartResponse{}
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -200,7 +200,7 @@ func (r *shorturlRoutes) shorten(res http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Shorturl{Config: r.cfg}
+			data2 := entity.Gofermart{Config: r.cfg}
 			data2.URL = data.URL
 			sh, err := r.s.ShortLink(ctx, &data2)
 			if err != nil {
@@ -227,7 +227,7 @@ func (r *shorturlRoutes) shorten(res http.ResponseWriter, req *http.Request) {
 
 func (r *shorturlRoutes) batch(res http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	data := entity.Shorturl{Config: r.cfg}
+	data := entity.Gofermart{Config: r.cfg}
 	CorrelationOrigin := entity.CorrelationOrigin{}
 	body, err := io.ReadAll(req.Body)
 	if err != nil {

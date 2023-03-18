@@ -27,7 +27,7 @@ func Run(cfg *config.Config) {
 	// seed
 	rand.Seed(time.Now().UnixNano())
 	// Use case
-	var shorturlUseCase usecase.Shorturl
+	var shorturlUseCase usecase.Gofermart
 	if !scripts.CheckEnvironFlag("DATABASE_DSN", cfg.Storage.ConnectDB) {
 		if cfg.FileStorage == "" {
 			l.Warn("In memory storage!!!")
@@ -73,7 +73,7 @@ func Run(cfg *config.Config) {
 }
 
 func cleanup() {
-	fmt.Print("Hang on! I'm closing some DBs, wiping some trails..")
+	fmt.Println("Hang on! I'm closing some DBs, wiping some trails..")
 	time.Sleep(1 * time.Second)
 	fmt.Println("  Done...")
 }

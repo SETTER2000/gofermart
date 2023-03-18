@@ -3,9 +3,9 @@ package repo
 import (
 	"context"
 	"fmt"
-	"github.com/SETTER2000/shorturl/config"
-	"github.com/SETTER2000/shorturl/internal/entity"
-	"github.com/SETTER2000/shorturl/scripts"
+	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/entity"
+	"github.com/SETTER2000/gofermart/scripts"
 	"github.com/jackc/pgerrcode"
 	_ "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -54,8 +54,8 @@ func NewSQLProducer(cfg *config.Config) *producerSQL {
 	}
 }
 
-func (i *InSQL) Post(ctx context.Context, sh *entity.Shorturl) error {
-	stmt, err := i.w.db.Prepare("INSERT INTO public.shorturl (slug, url, user_id) VALUES ($1,$2,$3)")
+func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
+	stmt, err := i.w.db.Prepare("INSERT INTO public.gofermart (slug, url, user_id) VALUES ($1,$2,$3)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func (i *InSQL) Post(ctx context.Context, sh *entity.Shorturl) error {
 	return nil
 }
 
-func (i *InSQL) Put(ctx context.Context, sh *entity.Shorturl) error {
+func (i *InSQL) Put(ctx context.Context, sh *entity.Gofermart) error {
 	return i.Post(ctx, sh)
 }
 
@@ -82,10 +82,10 @@ func NewSQLConsumer(cfg *config.Config) *consumerSQL {
 	}
 }
 
-func (i *InSQL) Get(ctx context.Context, sh *entity.Shorturl) (*entity.Shorturl, error) {
+func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
 	var slug, url, id string
 	var del bool
-	rows, err := i.w.db.Query("SELECT slug, url, user_id, del FROM shorturl WHERE slug = $1 OR url = $2 ", sh.Slug, sh.URL)
+	rows, err := i.w.db.Query("SELECT slug, url, user_id, del FROM gofermart WHERE slug = $1 OR url = $2 ", sh.Slug, sh.URL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Shorturl) (*entity.Shorturl,
 	if err != nil {
 		log.Fatal(err)
 	}
-	//sh := entity.Shorturl{}
+	//sh := entity.Gofermart{}
 	sh.Slug = slug
 	sh.URL = url
 	sh.UserID = id
@@ -110,7 +110,7 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Shorturl) (*entity.Shorturl,
 
 func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error) {
 	var slug, url, id string
-	q := `SELECT slug, url, user_id FROM shorturl WHERE user_id=$1 AND del=$2`
+	q := `SELECT slug, url, user_id FROM gofermart WHERE user_id=$1 AND del=$2`
 	rows, err := i.w.db.Queryx(q, u.UserID, false)
 	if err != nil {
 		log.Fatal(err)
@@ -133,9 +133,9 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 	return u, nil
 }
 func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
-	q := `UPDATE shorturl SET del = $1
+	q := `UPDATE gofermart SET del = $1
 	FROM (SELECT unnest($2::text[]) AS slug) AS data_table
-	WHERE shorturl.slug = data_table.slug AND shorturl.user_id=$3`
+	WHERE gofermart.slug = data_table.slug AND gofermart.user_id=$3`
 
 	rows, err := i.w.db.Queryx(q, true, u.DelLink, u.UserID)
 	if err != nil {
@@ -162,7 +162,7 @@ func Connect(cfg *config.Config) (db *sqlx.DB) {
 (
    id   VARCHAR(300) NOT NULL
 );
-CREATE TABLE IF NOT EXISTS public.shorturl
+CREATE TABLE IF NOT EXISTS public.gofermart
 (
    slug    VARCHAR(300) NOT NULL,
    url     VARCHAR NOT NULL UNIQUE,

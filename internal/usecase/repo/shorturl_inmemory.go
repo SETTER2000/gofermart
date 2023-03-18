@@ -2,8 +2,8 @@ package repo
 
 import (
 	"context"
-	"github.com/SETTER2000/shorturl/config"
-	"github.com/SETTER2000/shorturl/internal/entity"
+	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/entity"
 	"sync"
 )
 
@@ -17,8 +17,8 @@ import (
 // Определяя структуру, в которой мьютекс должен защищать одно или больше значений,
 // помещайте мьютекс выше тех полей, доступ к которым, он будет защищать.
 type InMemory struct {
-	lock sync.Mutex                  // <-- этот мьютекс защищает
-	m    map[string]entity.Shorturls // <-- это поле под ним
+	lock sync.Mutex                   // <-- этот мьютекс защищает
+	m    map[string]entity.Gofermarts // <-- это поле под ним
 	cfg  *config.Config
 }
 
@@ -26,11 +26,11 @@ type InMemory struct {
 func NewInMemory(cfg *config.Config) *InMemory {
 	return &InMemory{
 		cfg: cfg,
-		m:   make(map[string]entity.Shorturls),
+		m:   make(map[string]entity.Gofermarts),
 	}
 }
 
-func (s *InMemory) Get(ctx context.Context, sh *entity.Shorturl) (*entity.Shorturl, error) {
+func (s *InMemory) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
 	u, err := s.searchBySlug(sh)
 	if err != nil {
 		return nil, ErrNotFound
@@ -38,7 +38,7 @@ func (s *InMemory) Get(ctx context.Context, sh *entity.Shorturl) (*entity.Shortu
 	return u, nil
 }
 
-func (s *InMemory) searchUID(sh *entity.Shorturl) (*entity.Shorturl, error) {
+func (s *InMemory) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	for _, short := range s.m[sh.UserID] {
 		if short.Slug == sh.Slug {
 			sh.URL = short.URL
@@ -51,8 +51,8 @@ func (s *InMemory) searchUID(sh *entity.Shorturl) (*entity.Shorturl, error) {
 }
 
 // search by slug
-func (s *InMemory) searchBySlug(sh *entity.Shorturl) (*entity.Shorturl, error) {
-	shorts := entity.Shorturls{}
+func (s *InMemory) searchBySlug(sh *entity.Gofermart) (*entity.Gofermart, error) {
+	shorts := entity.Gofermarts{}
 	for _, uid := range s.m {
 		for j := 0; j < len(uid); j++ {
 			shorts = append(shorts, uid[j])
@@ -73,7 +73,7 @@ func (s *InMemory) GetAll(ctx context.Context, u *entity.User) (*entity.User, er
 	return nil, ErrNotFound
 }
 
-func (s *InMemory) Put(ctx context.Context, sh *entity.Shorturl) error {
+func (s *InMemory) Put(ctx context.Context, sh *entity.Gofermart) error {
 	ln := len(s.m[sh.UserID])
 	if ln < 1 {
 		s.Post(ctx, sh)
@@ -89,7 +89,7 @@ func (s *InMemory) Put(ctx context.Context, sh *entity.Shorturl) error {
 	return s.Post(ctx, sh)
 }
 
-func (s *InMemory) Post(ctx context.Context, sh *entity.Shorturl) error {
+func (s *InMemory) Post(ctx context.Context, sh *entity.Gofermart) error {
 	s.m[sh.UserID] = append(s.m[sh.UserID], *sh)
 	return nil
 }

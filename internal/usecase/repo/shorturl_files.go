@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/SETTER2000/shorturl/config"
-	"github.com/SETTER2000/shorturl/internal/entity"
-	"github.com/SETTER2000/shorturl/scripts"
+	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/entity"
+	"github.com/SETTER2000/gofermart/scripts"
 	"io"
 	"os"
 )
@@ -31,7 +31,7 @@ type (
 
 	InFiles struct {
 		//lock sync.Mutex // <-- этот мьютекс защищает
-		m   map[string]entity.Shorturls
+		m   map[string]entity.Gofermarts
 		cfg *config.Config
 		r   *consumer
 		w   *producer
@@ -42,7 +42,7 @@ type (
 func NewInFiles(cfg *config.Config) *InFiles {
 	return &InFiles{
 		cfg: cfg,
-		m:   make(map[string]entity.Shorturls),
+		m:   make(map[string]entity.Gofermarts),
 		// создаём новый потребитель
 		r: NewConsumer(cfg),
 		// создаём новый производитель
@@ -59,17 +59,17 @@ func NewProducer(cfg *config.Config) *producer {
 	}
 }
 
-func (i *InFiles) post(sh *entity.Shorturl) error {
+func (i *InFiles) post(sh *entity.Gofermart) error {
 	i.m[sh.UserID] = append(i.m[sh.UserID], *sh)
 	return nil
 }
-func (i *InFiles) Post(ctx context.Context, sh *entity.Shorturl) error {
+func (i *InFiles) Post(ctx context.Context, sh *entity.Gofermart) error {
 	//i.lock.Lock()
 	//defer i.lock.Unlock()
 	return i.post(sh)
 }
 
-func (i *InFiles) Put(ctx context.Context, sh *entity.Shorturl) error {
+func (i *InFiles) Put(ctx context.Context, sh *entity.Gofermart) error {
 	ln := len(i.m[sh.UserID])
 	if ln < 1 {
 		i.Post(ctx, sh)
@@ -95,11 +95,11 @@ func NewConsumer(cfg *config.Config) *consumer {
 	}
 }
 
-func (i *InFiles) Get(ctx context.Context, sh *entity.Shorturl) (*entity.Shorturl, error) {
+func (i *InFiles) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
 	return i.searchBySlug(sh)
 }
 
-func (i *InFiles) searchUID(sh *entity.Shorturl) (*entity.Shorturl, error) {
+func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	for _, short := range i.m[sh.UserID] {
 		if short.Slug == sh.Slug {
 			sh.URL = short.URL
@@ -113,8 +113,8 @@ func (i *InFiles) searchUID(sh *entity.Shorturl) (*entity.Shorturl, error) {
 }
 
 // search by slug
-func (i *InFiles) searchBySlug(sh *entity.Shorturl) (*entity.Shorturl, error) {
-	shorts := entity.Shorturls{}
+func (i *InFiles) searchBySlug(sh *entity.Gofermart) (*entity.Gofermart, error) {
+	shorts := entity.Gofermarts{}
 	for _, uid := range i.m {
 		for j := 0; j < len(uid); j++ {
 			shorts = append(shorts, uid[j])
@@ -131,7 +131,7 @@ func (i *InFiles) searchBySlug(sh *entity.Shorturl) (*entity.Shorturl, error) {
 	return sh, nil
 }
 func (i *InFiles) getAll() error {
-	sh := &entity.Shorturl{}
+	sh := &entity.Gofermart{}
 	for {
 		if err := i.r.decoder.Decode(&sh); err != nil {
 			if err == io.EOF {
