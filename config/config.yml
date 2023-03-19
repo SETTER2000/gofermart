@@ -1,8 +1,8 @@
 app:
   name: 'gofermart'
-  version: '0.14.0'
+  version: '0.1.0'
   access_token_name: 'user_id'
-  expiration_time: '2023-03-31T15:04:05Z'
+  expiration_time: '2023-04-19T00:00:01Z'
 cookie:
   secret_key: 'erter09gj0f9g'
   access_token_name: 'access_token'

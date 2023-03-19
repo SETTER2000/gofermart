@@ -228,8 +228,8 @@ func (r *shorturlRoutes) shorten(res http.ResponseWriter, req *http.Request) {
 
 func (r *shorturlRoutes) register(res http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	data := entity.Gofermart{Config: r.cfg}
-	Authentication := entity.Authentication{}
+	data := entity.Gofermart{}
+	Authentication := entity.Authentication{Config: r.cfg}
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		panic(err)
