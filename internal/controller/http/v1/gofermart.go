@@ -32,6 +32,7 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 	handler.Route("/user", func(r chi.Router) {
 		r.Get("/urls", sr.urls)
 		r.Delete("/urls", sr.delUrls2)
+		r.Post("/register", sr.register)
 	})
 	handler.Route("/shorten", func(r chi.Router) {
 		r.Post("/", sr.shorten) // POST /
@@ -75,7 +76,7 @@ func (r *shorturlRoutes) shortLink(w http.ResponseWriter, req *http.Request) {
 // при успешной проверке хендлер должен вернуть HTTP-статус 200 OK
 // при неуспешной — 500 Internal Server Error
 func (r *shorturlRoutes) connect(res http.ResponseWriter, req *http.Request) {
-	dsn, ok := os.LookupEnv("DATABASE_DSN")
+	dsn, ok := os.LookupEnv("DATABASE_URI")
 	if !ok || dsn == "" {
 		dsn = r.cfg.Storage.ConnectDB
 		if dsn == "" {
@@ -84,7 +85,7 @@ func (r *shorturlRoutes) connect(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 	} else {
-		db, err := pgx.Connect(req.Context(), os.Getenv("DATABASE_DSN"))
+		db, err := pgx.Connect(req.Context(), os.Getenv("DATABASE_URI"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 			res.WriteHeader(http.StatusInternalServerError)
@@ -225,6 +226,49 @@ func (r *shorturlRoutes) shorten(res http.ResponseWriter, req *http.Request) {
 	res.Write(obj)
 }
 
+func (r *shorturlRoutes) register(res http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	data := entity.Gofermart{Config: r.cfg}
+	Authentication := entity.Authentication{}
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		panic(err)
+	}
+	if err = json.Unmarshal(body, &Authentication); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// если значения пустое
+	if len(Authentication.Login) < 1 || len(Authentication.Password) < 1 {
+		http.Error(res, "неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+	var rs entity.Response
+	var sr entity.ShortenResponse
+
+	err = r.s.Register(ctx, &Authentication)
+	if err != nil {
+		if errors.Is(err, repo.ErrAlreadyExists) {
+			res.WriteHeader(http.StatusConflict)
+			return
+		}
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	sr.Slug = data.Slug
+	sr.URL = scripts.GetHost(r.cfg.HTTP, data.Slug)
+	rs = append(rs, sr)
+
+	obj, err := json.Marshal(rs)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
+	res.Write(obj)
+}
 func (r *shorturlRoutes) batch(res http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	data := entity.Gofermart{Config: r.cfg}

@@ -1,6 +1,7 @@
 package scripts
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/SETTER2000/gofermart/config"
 	"hash/fnv"
@@ -13,6 +14,17 @@ func FNV32a(text string) uint32 {
 	algorithm := fnv.New32a()
 	algorithm.Write([]byte(text))
 	return algorithm.Sum32()
+}
+
+// RandBytes генерирует массив случайных байт. Размер массива передаётся параметром.
+// Функция должна возвращать массив в виде строки в кодировке base64
+func RandBytes(n int) (string, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		return ``, err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 func GenerateString(n int) string {
 	// generate string

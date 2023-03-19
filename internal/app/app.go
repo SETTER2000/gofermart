@@ -27,27 +27,27 @@ func Run(cfg *config.Config) {
 	// seed
 	rand.Seed(time.Now().UnixNano())
 	// Use case
-	var shorturlUseCase usecase.Gofermart
-	if !scripts.CheckEnvironFlag("DATABASE_DSN", cfg.Storage.ConnectDB) {
+	var gofermartUseCase usecase.Gofermart
+	if !scripts.CheckEnvironFlag("DATABASE_URI", cfg.Storage.ConnectDB) {
 		if cfg.FileStorage == "" {
 			l.Warn("In memory storage!!!")
-			shorturlUseCase = usecase.New(repo.NewInMemory(cfg))
+			gofermartUseCase = usecase.New(repo.NewInMemory(cfg))
 		} else {
 			l.Info("File storage - is work...")
-			shorturlUseCase = usecase.New(repo.NewInFiles(cfg))
-			if err := shorturlUseCase.ReadService(); err != nil {
-				l.Error(fmt.Errorf("app - Read - shorturlUseCase.ReadService: %w", err))
+			gofermartUseCase = usecase.New(repo.NewInFiles(cfg))
+			if err := gofermartUseCase.ReadService(); err != nil {
+				l.Error(fmt.Errorf("app - Read - gofermartUseCase.ReadService: %w", err))
 			}
 		}
 	} else {
 		l.Info("DB SQL - is work...")
-		shorturlUseCase = usecase.New(repo.NewInSQL(cfg))
+		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
 	}
 
 	// HTTP Server
 	handler := chi.NewRouter()
 	handler.Use(middleware.AllowContentEncoding("deflate", "gzip"))
-	v1.NewRouter(handler, l, shorturlUseCase, cfg)
+	v1.NewRouter(handler, l, gofermartUseCase, cfg)
 	httpServer := server.New(handler, server.Host(cfg.HTTP.ServerAddress))
 
 	// waiting signal
@@ -56,8 +56,8 @@ func Run(cfg *config.Config) {
 
 	select {
 	case s := <-interrupt:
-		if err := shorturlUseCase.SaveService(); err != nil {
-			l.Error(fmt.Errorf("app - Save - shorturlUseCase.SaveService: %w", err))
+		if err := gofermartUseCase.SaveService(); err != nil {
+			l.Error(fmt.Errorf("app - Save - gofermartUseCase.SaveService: %w", err))
 		}
 		l.Info("app - Run - signal: " + s.String())
 	case err := <-httpServer.Notify():

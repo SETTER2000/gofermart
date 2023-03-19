@@ -23,14 +23,14 @@ type (
 	HTTP struct {
 		// BASE_URL - базовый адрес результирующего сокращённого URL
 		BaseURL string `env:"BASE_URL"`
-		// SERVER_ADDRESS - адрес запуска HTTP-сервера
-		ServerAddress string `env:"SERVER_ADDRESS"`
+		// RUN_ADDRESS - адрес запуска HTTP-сервера
+		ServerAddress string `env:"RUN_ADDRESS"`
 	}
 	Storage struct {
 		// FILE_STORAGE_PATH путь до файла с сокращёнными URL (директории не создаёт)
 		FileStorage string `env:"FILE_STORAGE_PATH"`
 		// Строка с адресом подключения к БД, например для PostgreSQL (драйвер pgx): postgres://username:password@localhost:5432/database_name
-		ConnectDB string `env:"DATABASE_DSN"`
+		ConnectDB string `env:"DATABASE_URI"`
 	}
 	Cookie struct {
 		AccessTokenName string `env-required:"true" yaml:"access_token_name" env:"ACCESS_TOKEN_NAME" envDefault:"access_token"`

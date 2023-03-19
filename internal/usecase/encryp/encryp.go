@@ -21,6 +21,21 @@ var x interface{} = "access_token" //прочитать значение мож�
 
 type Encrypt struct{}
 
+func RequireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isAuthenticated(r) {
+			http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
+			return
+		}
+		// Assuming authentication passed, run the original handler
+		next.ServeHTTP(w, r)
+	})
+}
+func isAuthenticated(r *http.Request) bool {
+	// TODO is auth
+	return true
+}
+
 // EncryptionKeyCookie - middleware, которая устанавливает симметрично подписанную и зашифрованную куку
 // кука устанавливается любому запросу не имеющему соответствующую куку или не прошедшая идентификацию
 // в куке зашифрован, сгенерированный идентификатор пользователя
@@ -61,7 +76,6 @@ func EncryptionKeyCookie(next http.Handler) http.Handler {
 			if err != nil {
 				fmt.Printf("Encrypt error: %v\n", err)
 			}
-			//sessionLifeNanos := 100000000000
 			http.SetCookie(w, &http.Cookie{
 				Name:  "access_token",
 				Path:  "/",
@@ -85,13 +99,14 @@ func EncryptionKeyCookie(next http.Handler) http.Handler {
 
 // EncryptToken шифрование и подпись
 // data - данные для кодирования
-// secretKey - пароль/ключ для шифрования,
+// secretKey - ключ для шифрования,
 // из него создаётся ключ с помощью которого можно шифровать и расшифровать данные
 // возвращает зашифрованную строку/токен
 func (e *Encrypt) EncryptToken(secretKey string) (string, error) {
-	data := scripts.UniqueString()
-	src := []byte(data) // данные, которые хотим зашифровать
-	// ключ шифрования, будем использовать AES256, создав ключ длиной 32 байта (256 бит)
+	data := scripts.UniqueString() //
+	src := []byte(data)            // данные, которые хотим зашифровать
+	// ключ шифрования, будем использовать AES256,
+	// создав ключ длиной 32 байта (256 бит)
 	key := sha256.Sum256([]byte(secretKey))
 	aesblock, err := aes.NewCipher(key[:])
 	if err != nil {
@@ -112,8 +127,7 @@ func (e *Encrypt) EncryptToken(secretKey string) (string, error) {
 
 // DecryptToken расшифровать токен
 // data - данные для расшифровки
-// secretKey - пароль/ключ для шифрования,
-// ключ с помощью которого шифровались данные
+// secretKey - ключ с помощью которого шифровались данные
 // возвращает расшифрованную строку
 func (e *Encrypt) DecryptToken(data string, secretKey string) (string, error) {
 	// 1) получите ключ из password, используя sha256.Sum256
@@ -170,19 +184,12 @@ func CheckToken(msg string) bool {
 	h := hmac.New(sha256.New, key)
 	h.Write(data[:4])
 	sign = h.Sum(nil)
-	fmt.Printf("III-1 %v\n", sign)
-	fmt.Printf("III-2 %v\n", data[4:])
+
 	if hmac.Equal(sign, data[4:]) {
 		fmt.Println("Подпись подлинная. ID:", id)
 		return true
 	}
 
-	fmt.Println("Подпись неверна. Где-то ошибкА...")
+	fmt.Println("Подпись неверна. Где-то ошибка...")
 	return false
-	//_, err := EncryptToken(secretSecret)
-	//if err != nil {
-	//	fmt.Printf("CheckToken error: %v\n", err)
-	//	return false
-	//}
-	//
 }

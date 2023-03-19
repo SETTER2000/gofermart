@@ -25,6 +25,11 @@ type User struct {
 	Urls    []List
 	DelLink []string
 }
+type Authentication struct {
+	Login          string `json:"login"`
+	Password       string `json:"password"`
+	*config.Config `json:"-"`
+}
 
 type GofermartResponse struct {
 	URL string `json:"result"` // URL для сокращения

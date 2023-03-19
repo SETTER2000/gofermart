@@ -12,19 +12,28 @@ var (
 	ErrBadRequest    = errors.New("bad request")
 )
 
-// ShorturlUseCase -.
-type ShorturlUseCase struct {
-	repo ShorturlRepo
+// GofermartUseCase -.
+type GofermartUseCase struct {
+	repo GofermartRepo
 }
 
 // New -.
-func New(r ShorturlRepo) *ShorturlUseCase {
-	return &ShorturlUseCase{
+func New(r GofermartRepo) *GofermartUseCase {
+	return &GofermartUseCase{
 		repo: r,
 	}
 }
 
-func (uc *ShorturlUseCase) Shorten(ctx context.Context, sh *entity.Gofermart) (string, error) {
+func (uc *GofermartUseCase) Register(ctx context.Context, auth *entity.Authentication) error {
+	//auth.Login = ctx.Value(auth.Cookie.AccessTokenName).(string)
+	err := uc.repo.Registry(ctx, auth)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (uc *GofermartUseCase) Shorten(ctx context.Context, sh *entity.Gofermart) (string, error) {
 	sh.UserID = ctx.Value(sh.Cookie.AccessTokenName).(string)
 	err := uc.repo.Post(ctx, sh)
 	if err != nil {
@@ -34,7 +43,7 @@ func (uc *ShorturlUseCase) Shorten(ctx context.Context, sh *entity.Gofermart) (s
 }
 
 // LongLink принимает длинный URL и возвращает короткий (PUT /api)
-func (uc *ShorturlUseCase) LongLink(ctx context.Context, sh *entity.Gofermart) (string, error) {
+func (uc *GofermartUseCase) LongLink(ctx context.Context, sh *entity.Gofermart) (string, error) {
 	//sh.Slug = scripts.UniqueString()
 	sh.UserID = ctx.Value("access_token").(string)
 	err := uc.repo.Put(ctx, sh)
@@ -45,7 +54,7 @@ func (uc *ShorturlUseCase) LongLink(ctx context.Context, sh *entity.Gofermart) (
 }
 
 // ShortLink принимает короткий URL и возвращает длинный (GET /api/{key})
-func (uc *ShorturlUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
+func (uc *GofermartUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
 	sh.UserID = ctx.Value("access_token").(string)
 	sh, err := uc.repo.Get(ctx, sh)
 	if err == nil {
@@ -55,7 +64,7 @@ func (uc *ShorturlUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) 
 }
 
 // UserAllLink принимает короткий URL и возвращает длинный (GET /user/urls)
-func (uc *ShorturlUseCase) UserAllLink(ctx context.Context, u *entity.User) (*entity.User, error) {
+func (uc *GofermartUseCase) UserAllLink(ctx context.Context, u *entity.User) (*entity.User, error) {
 	u, err := uc.repo.GetAll(ctx, u)
 	if err == nil {
 		return u, nil
@@ -64,21 +73,21 @@ func (uc *ShorturlUseCase) UserAllLink(ctx context.Context, u *entity.User) (*en
 }
 
 // UserDelLink принимает короткий URL и возвращает длинный (DELETE /api/user/urls)
-func (uc *ShorturlUseCase) UserDelLink(ctx context.Context, u *entity.User) error {
+func (uc *GofermartUseCase) UserDelLink(ctx context.Context, u *entity.User) error {
 	err := uc.repo.Delete(ctx, u)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (uc *ShorturlUseCase) SaveService() error {
+func (uc *GofermartUseCase) SaveService() error {
 	err := uc.repo.Save()
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (uc *ShorturlUseCase) ReadService() error {
+func (uc *GofermartUseCase) ReadService() error {
 	err := uc.repo.Read()
 	if err != nil {
 		return err

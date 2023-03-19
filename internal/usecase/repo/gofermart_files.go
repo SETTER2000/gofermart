@@ -68,6 +68,9 @@ func (i *InFiles) Post(ctx context.Context, sh *entity.Gofermart) error {
 	//defer i.lock.Unlock()
 	return i.post(sh)
 }
+func (i *InFiles) Registry(ctx context.Context, auth *entity.Authentication) error {
+	return nil
+}
 
 func (i *InFiles) Put(ctx context.Context, sh *entity.Gofermart) error {
 	ln := len(i.m[sh.UserID])

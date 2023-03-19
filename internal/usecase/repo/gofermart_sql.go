@@ -54,19 +54,31 @@ func NewSQLProducer(cfg *config.Config) *producerSQL {
 	}
 }
 
+func (i *InSQL) Registry(ctx context.Context, auth *entity.Authentication) error {
+	stmt, err := i.w.db.Prepare("INSERT INTO public.user(login, passwd) VALUES ($1,$2)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = stmt.Exec(auth.Login, auth.Password)
+	if err, ok := err.(*pgconn.PgError); ok {
+		if err.Code == pgerrcode.UniqueViolation {
+			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+		}
+	}
+	return nil
+}
+
 func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
 	stmt, err := i.w.db.Prepare("INSERT INTO public.gofermart (slug, url, user_id) VALUES ($1,$2,$3)")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	_, err = stmt.Exec(sh.Slug, sh.URL, sh.UserID)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
 			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
 		}
 	}
-
 	return nil
 }
 
@@ -158,10 +170,16 @@ func Connect(cfg *config.Config) (db *sqlx.DB) {
 	n := 100
 	db.SetMaxIdleConns(n)
 	db.SetMaxOpenConns(n)
-	schema := `CREATE TABLE IF NOT EXISTS public.user
+	schema := `
+-- CREATE EXTENSION "uuid-ossp";
+CREATE TABLE IF NOT EXISTS public.user
 (
-   id   VARCHAR(300) NOT NULL
+	user_id UUID NOT NULL DEFAULT uuid_generate_v1() ,
+  CONSTRAINT user_id_user PRIMARY KEY ( user_id ),
+    login VARCHAR(100) NOT NULL UNIQUE,
+    passwd VARCHAR(100) NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS public.gofermart
 (
    slug    VARCHAR(300) NOT NULL,

@@ -93,7 +93,9 @@ func (s *InMemory) Post(ctx context.Context, sh *entity.Gofermart) error {
 	s.m[sh.UserID] = append(s.m[sh.UserID], *sh)
 	return nil
 }
-
+func (s *InMemory) Registry(ctx context.Context, auth *entity.Authentication) error {
+	return nil
+}
 func (s *InMemory) Delete(ctx context.Context, u *entity.User) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
