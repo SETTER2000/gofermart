@@ -298,7 +298,7 @@ func SessionCreated(w http.ResponseWriter, r *http.Request, data string) error {
 		fmt.Printf(" Decrypt error: %v\n", err)
 		return err
 	}
-	ctx = context.WithValue(ctx, x, idUser)
+	context.WithValue(ctx, x, idUser)
 	//next.ServeHTTP(w, r.WithContext(ctx))
 	return nil
 }
