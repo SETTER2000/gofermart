@@ -47,10 +47,7 @@ func (e *Encrypt) isAuthenticated(r *http.Request) bool {
 }
 func (e *Encrypt) isCookie(r *http.Request) bool {
 	_, err := r.Cookie("access_token")
-	if err != http.ErrNoCookie {
-		return true
-	}
-	return false
+	return err != http.ErrNoCookie
 }
 
 // RequireAuthentication - middleware, которая устанавливает симметрично подписанную
@@ -275,7 +272,7 @@ func CheckToken(msg string) bool {
 }
 
 func SessionCreated(w http.ResponseWriter, r *http.Request, data string) error {
-	ctx := r.Context()
+	//ctx := r.Context()
 	en := Encrypt{}
 	// ...создать подписанный секретным ключом токен,
 	token, err := en.EncryptToken(secretSecret, data)
@@ -293,12 +290,12 @@ func SessionCreated(w http.ResponseWriter, r *http.Request, data string) error {
 		Expires: time.Now().Add(time.Minute * 60),
 	})
 
-	idUser, err := en.DecryptToken(token, secretSecret)
+	_, err = en.DecryptToken(token, secretSecret)
 	if err != nil {
 		fmt.Printf(" Decrypt error: %v\n", err)
 		return err
 	}
-	context.WithValue(ctx, x, idUser)
+	//context.WithValue(ctx, x, idUser)
 	//next.ServeHTTP(w, r.WithContext(ctx))
 	return nil
 }
