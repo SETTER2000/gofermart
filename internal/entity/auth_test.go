@@ -148,7 +148,10 @@ func TestAuthentication_ComparePassword(t *testing.T) {
 		{
 			name: "positive test #1",
 			fields: fields{
-				Password: "123",
+				EncryptPassword: "6c99f25e5ef66c3ecb370f8759f17597a3b4d4c81acc1e42c8228bd67d823339",
+			},
+			args: args{
+				password: "123",
 			},
 			want: true,
 		},
