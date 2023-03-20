@@ -47,10 +47,10 @@ func (e *Encrypt) isAuthenticated(r *http.Request) bool {
 }
 func (e *Encrypt) isCookie(r *http.Request) bool {
 	_, err := r.Cookie("access_token")
-	if err == http.ErrNoCookie {
-		return false
+	if err != http.ErrNoCookie {
+		return true
 	}
-	return true
+	return false
 }
 
 // RequireAuthentication - middleware, которая устанавливает симметрично подписанную
