@@ -3,10 +3,11 @@ package v1
 import "errors"
 
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrAlreadyExists = errors.New("already exists")
-	ErrAccessDenied  = errors.New(`access denied`)
-	ErrBadRequest    = errors.New("bad request")
+	ErrNotFound             = errors.New("not found")
+	ErrAlreadyExists        = errors.New("already exists")
+	ErrAccessDenied         = errors.New(`access denied`)
+	ErrBadRequest           = errors.New("bad request")
+	ErrIncorrectLoginOrPass = errors.New("incorrect login or password")
 )
 
 type response struct {

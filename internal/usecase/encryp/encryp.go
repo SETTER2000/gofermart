@@ -21,37 +21,39 @@ var x interface{} = "access_token" //прочитать значение мож�
 
 type Encrypt struct{}
 
-func RequireAuthentication(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r) {
-			http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
-			return
-		}
-		// Assuming authentication passed, run the original handler
-		next.ServeHTTP(w, r)
-	})
-}
-func isAuthenticated(r *http.Request) bool {
-	// TODO is auth
+func (e *Encrypt) isAuthenticated(r *http.Request) bool {
+	at, err := r.Cookie("access_token")
+	if err == http.ErrNoCookie {
+		return false
+	}
+	// если кука обнаружена, то расшифровываем токен,
+	// содержащийся в ней, и проверяем подпись
+	_, err = e.DecryptToken(at.Value, secretSecret)
+	if err != nil {
+		fmt.Errorf("error decrypt cookie: %e", err)
+		return false
+	}
 	return true
 }
 
-// EncryptionKeyCookie - middleware, которая устанавливает симметрично подписанную и зашифрованную куку
-// кука устанавливается любому запросу не имеющему соответствующую куку или не прошедшая идентификацию
-// в куке зашифрован, сгенерированный идентификатор пользователя
-func EncryptionKeyCookie(next http.Handler) http.Handler {
+// RequireAuthentication - middleware, которая устанавливает симметрично подписанную
+// и зашифрованную куку устанавливается любому запросу не имеющему соответствующую куку
+// или не прошедшая идентификацию, в куке зашифрован сгенерированный идентификатор пользователя
+func RequireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		en := Encrypt{}
 		idUser := ""
-		at, err := r.Cookie("access_token")
-		if err == http.ErrNoCookie {
-			// создать токен
+		//at, err := r.Cookie("access_token")
+		// если не обнаружена кука в запросе ...
+		if !en.isAuthenticated(r) {
+			// ...создать подписанный секретным ключом токен,
 			token, err := en.EncryptToken(secretSecret)
 			if err != nil {
 				fmt.Printf("Encrypt error: %v\n", err)
 			}
-			//sessionLifeNanos := 100000000000
+			// ...установить куку с именем access_token, а в качестве значения установить зашифрованный,
+			// подписанный токен
 			http.SetCookie(w, &http.Cookie{
 				Name:  "access_token",
 				Path:  "/",
@@ -67,31 +69,6 @@ func EncryptionKeyCookie(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
-
-		idUser, err = en.DecryptToken(at.Value, secretSecret)
-		if err != nil {
-			fmt.Printf("Decrypt token error: %v\n", err)
-			// создать токен
-			token, err := en.EncryptToken(secretSecret)
-			if err != nil {
-				fmt.Printf("Encrypt error: %v\n", err)
-			}
-			http.SetCookie(w, &http.Cookie{
-				Name:  "access_token",
-				Path:  "/",
-				Value: token,
-				//Expires: time.Now().Add(time.Nanosecond * time.Duration(sessionLifeNanos)),
-			})
-
-			idUser, err = en.DecryptToken(token, secretSecret)
-			if err != nil {
-				fmt.Printf(" Decrypt error: %v\n", err)
-			}
-			ctx = context.WithValue(ctx, x, idUser)
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
-		}
-
 		ctx = context.WithValue(ctx, x, idUser)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -141,7 +118,6 @@ func (e *Encrypt) DecryptToken(data string, secretKey string) (string, error) {
 
 	aesgcm, err := cipher.NewGCM(aesblock)
 	if err != nil {
-
 		return "", err
 	}
 

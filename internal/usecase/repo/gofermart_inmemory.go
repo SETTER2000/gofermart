@@ -37,7 +37,9 @@ func (s *InMemory) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofer
 	}
 	return u, nil
 }
-
+func (s *InMemory) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
+	return nil, nil
+}
 func (s *InMemory) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	for _, short := range s.m[sh.UserID] {
 		if short.Slug == sh.Slug {

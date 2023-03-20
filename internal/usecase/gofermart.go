@@ -24,6 +24,14 @@ func New(r GofermartRepo) *GofermartUseCase {
 	}
 }
 
+func (uc *GofermartUseCase) FindByLogin(ctx context.Context, s string) (*entity.Authentication, error) {
+	//auth.Login = ctx.Value(auth.Cookie.AccessTokenName).(string)
+	a, err := uc.repo.GetByLogin(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
+}
 func (uc *GofermartUseCase) Register(ctx context.Context, auth *entity.Authentication) error {
 	//auth.Login = ctx.Value(auth.Cookie.AccessTokenName).(string)
 	err := uc.repo.Registry(ctx, auth)

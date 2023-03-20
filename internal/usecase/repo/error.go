@@ -55,6 +55,7 @@ func NewLabelError(label string, err error) error {
 // Error добавляет поддержку интерфейса error для типа LabelError.
 func (le *LabelError) Error() string {
 	return fmt.Sprintf("[%s] %v", le.Label, le.Err)
+	//return fmt.Sprintf("[%s] %v", le.Label, le.Err)
 }
 
 func (le *LabelError) Unwrap() error {
@@ -83,7 +84,8 @@ func NewConflictError(label string, url string, err error) error {
 
 // Error добавляет поддержку интерфейса error для типа LabelError.
 func (ce *ConflictError) Error() string {
-	return fmt.Sprintf("[%s] %s %v", ce.Label, ce.URL, ce.Err)
+	return fmt.Sprintf("%v", ce.Err)
+	//return fmt.Sprintf("[%s] %s %v", ce.Label, ce.URL, ce.Err)
 }
 
 func (ce *ConflictError) Unwrap() error {

@@ -102,6 +102,10 @@ func (i *InFiles) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Goferm
 	return i.searchBySlug(sh)
 }
 
+func (i *InFiles) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
+	return nil, nil
+}
+
 func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	for _, short := range i.m[sh.UserID] {
 		if short.Slug == sh.Slug {

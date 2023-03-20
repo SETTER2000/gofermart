@@ -11,6 +11,7 @@ import (
 type (
 	// Gofermart -.
 	Gofermart interface {
+		FindByLogin(context.Context, string) (*entity.Authentication, error)
 		Register(context.Context, *entity.Authentication) error
 		Shorten(context.Context, *entity.Gofermart) (string, error)
 		LongLink(context.Context, *entity.Gofermart) (string, error)
@@ -23,6 +24,7 @@ type (
 
 	// GofermartRepo -.
 	GofermartRepo interface {
+		GetByLogin(context.Context, string) (*entity.Authentication, error)
 		Registry(context.Context, *entity.Authentication) error
 		Post(context.Context, *entity.Gofermart) error
 		Put(context.Context, *entity.Gofermart) error

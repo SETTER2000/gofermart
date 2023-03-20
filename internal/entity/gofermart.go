@@ -1,10 +1,12 @@
 package entity
 
-import "github.com/SETTER2000/gofermart/config"
+import (
+	"github.com/SETTER2000/gofermart/config"
+)
 
 // CorrelationOrigin -.
 type CorrelationOrigin []Batch
-type Response []ShortenResponse
+type Response []GoferResponse
 type Gofermarts []Gofermart
 
 // Gofermart -.
@@ -25,11 +27,6 @@ type User struct {
 	Urls    []List
 	DelLink []string
 }
-type Authentication struct {
-	Login          string `json:"login"`
-	Password       string `json:"password"`
-	*config.Config `json:"-"`
-}
 
 type GofermartResponse struct {
 	URL string `json:"result"` // URL для сокращения
@@ -38,10 +35,9 @@ type GofermartResponse struct {
 type Batch struct {
 	Slug string `json:"correlation_id" example:"1674872720465761244B_5"`            // Строковый идентификатор
 	URL  string `json:"original_url" example:"https://example.com/go/to/home.html"` // URL для сокращения
-	//URL  string `json:"short_url" example:"https://example.com/go/to/home.html"`    // Результирующий сокращённый URL
 }
 
-type ShortenResponse struct {
+type GoferResponse struct {
 	Slug string `json:"correlation_id" example:"1674872720465761244B_5"`        // Строковый идентификатор
 	URL  string `json:"short_url" example:"https://example.com/correlation_id"` // URL для сокращения
 }

@@ -54,15 +54,21 @@ func NewSQLProducer(cfg *config.Config) *producerSQL {
 	}
 }
 
-func (i *InSQL) Registry(ctx context.Context, auth *entity.Authentication) error {
-	stmt, err := i.w.db.Prepare("INSERT INTO public.user(login, passwd) VALUES ($1,$2)")
-	if err != nil {
-		log.Fatal(err)
+func (i *InSQL) Registry(ctx context.Context, a *entity.Authentication) error {
+	if err := a.Validate(); err != nil {
+		return err
 	}
-	_, err = stmt.Exec(auth.Login, auth.Password)
+	if err := a.BeforeCreate(); err != nil {
+		return err
+	}
+	err := i.w.db.QueryRow(
+		"INSERT INTO public.user(login, encrypted_passwd) VALUES ($1,$2) RETURNING user_id",
+		a.Login,
+		a.EncryptPassword,
+	).Scan(&a.ID)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
-			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+			return NewConflictError("", "", ErrAlreadyExists)
 		}
 	}
 	return nil
@@ -120,6 +126,33 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 	return sh, nil
 }
 
+func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
+	var a entity.Authentication
+	var userId, login, encrypt string
+
+	q := `SELECT user_id, login, encrypted_passwd FROM "user" WHERE login=$1`
+	rows, err := i.w.db.Queryx(q, l)
+	//rows, err := i.w.db.Query("SELECT * FROM user WHERE login=$1", l)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&userId, &login, &encrypt)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+	a.ID = userId
+	a.Login = login
+	a.EncryptPassword = encrypt
+	return &a, nil
+}
+
 func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error) {
 	var slug, url, id string
 	q := `SELECT slug, url, user_id FROM gofermart WHERE user_id=$1 AND del=$2`
@@ -174,10 +207,10 @@ func Connect(cfg *config.Config) (db *sqlx.DB) {
 -- CREATE EXTENSION "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.user
 (
-	user_id UUID NOT NULL DEFAULT uuid_generate_v1() ,
-  CONSTRAINT user_id_user PRIMARY KEY ( user_id ),
+	user_id UUID NOT NULL DEFAULT uuid_generate_v1(),
+  CONSTRAINT user_id_user PRIMARY KEY (user_id),
     login VARCHAR(100) NOT NULL UNIQUE,
-    passwd VARCHAR(100) NOT NULL
+    encrypted_passwd VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS public.gofermart

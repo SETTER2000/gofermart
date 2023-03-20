@@ -21,18 +21,19 @@ import (
 	"time"
 )
 
-type shorturlRoutes struct {
+type gofermartRoutes struct {
 	s   usecase.Gofermart
 	l   logger.Interface
 	cfg *config.Config
 }
 
 func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interface, cfg *config.Config) {
-	sr := &shorturlRoutes{s, l, cfg}
+	sr := &gofermartRoutes{s, l, cfg}
 	handler.Route("/user", func(r chi.Router) {
 		r.Get("/urls", sr.urls)
 		r.Delete("/urls", sr.delUrls2)
-		r.Post("/register", sr.register)
+		r.Post("/register", sr.handleUserCreate)
+		r.Post("/login", sr.handleUserLogin)
 	})
 	handler.Route("/shorten", func(r chi.Router) {
 		r.Post("/", sr.shorten) // POST /
@@ -50,13 +51,13 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 // @Failure     500 {object} response
 // @Router      /{key} [get]
 
-func (r *shorturlRoutes) shortLink(w http.ResponseWriter, req *http.Request) {
-	gofermart := chi.URLParam(req, "key")
-	data := entity.Gofermart{Config: r.cfg}
+func (sr *gofermartRoutes) shortLink(w http.ResponseWriter, r *http.Request) {
+	gofermart := chi.URLParam(r, "key")
+	data := entity.Gofermart{Config: sr.cfg}
 	data.Slug = gofermart
-	sh, err := r.s.ShortLink(req.Context(), &data)
+	sh, err := sr.s.ShortLink(r.Context(), &data)
 	if err != nil {
-		r.l.Error(err, "http - v1 - shortLink")
+		sr.l.Error(err, "http - v1 - shortLink")
 		http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 		return
 	}
@@ -65,7 +66,7 @@ func (r *shorturlRoutes) shortLink(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusGone)
 		return
 	}
-	fmt.Println("URL найден заношу в Location: ", sh.URL)
+
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Add("Content-Encoding", "gzip")
 	w.Header().Set("Location", sh.URL)
@@ -75,26 +76,25 @@ func (r *shorturlRoutes) shortLink(w http.ResponseWriter, req *http.Request) {
 // GET /ping, который при запросе проверяет соединение с базой данных
 // при успешной проверке хендлер должен вернуть HTTP-статус 200 OK
 // при неуспешной — 500 Internal Server Error
-func (r *shorturlRoutes) connect(res http.ResponseWriter, req *http.Request) {
+func (sr *gofermartRoutes) connect(w http.ResponseWriter, r *http.Request) {
 	dsn, ok := os.LookupEnv("DATABASE_URI")
 	if !ok || dsn == "" {
-		dsn = r.cfg.Storage.ConnectDB
+		dsn = sr.cfg.Storage.ConnectDB
 		if dsn == "" {
-			r.l.Info("connect DSN string is empty: %v\n", dsn)
-			res.WriteHeader(http.StatusInternalServerError)
+			sr.l.Info("connect DSN string is empty: %v\n", dsn)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	} else {
-		db, err := pgx.Connect(req.Context(), os.Getenv("DATABASE_URI"))
+		db, err := pgx.Connect(r.Context(), os.Getenv("DATABASE_URI"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-			res.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 		defer db.Close(context.Background())
-
-		fmt.Printf("connect... \n")
-		res.WriteHeader(http.StatusOK)
-		res.Write([]byte("connect... "))
+		//w.WriteHeader(http.StatusOK)
+		//w.Write([]byte("connect... "))
+		sr.respond(w, r, http.StatusOK, "connect... ")
 	}
 }
 
@@ -107,71 +107,72 @@ func (r *shorturlRoutes) connect(res http.ResponseWriter, req *http.Request) {
 // @Success     201 {object} string
 // @Failure     500 {object} response
 // @Router      / [post]
-func (r *shorturlRoutes) longLink(res http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	body, err := io.ReadAll(req.Body)
+func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data := entity.Gofermart{Config: r.cfg}
+	data := entity.Gofermart{Config: sr.cfg}
 	data.URL = string(body)
 	//data.URL, _ = scripts.Trim(string(body), "")
 	data.Slug = scripts.UniqueString()
-	//data.UserID = req.Context().Value("access_token").(string)
-	gofermart, err := r.s.LongLink(ctx, &data)
+	//data.UserID = r.Context().Value("access_token").(string)
+	gofermart, err := sr.s.LongLink(ctx, &data)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Gofermart{Config: r.cfg, URL: data.URL}
+			data2 := entity.Gofermart{Config: sr.cfg, URL: data.URL}
 			//data2.URL = data.URL
-			sh, err := r.s.ShortLink(ctx, &data2)
+			sh, err := sr.s.ShortLink(ctx, &data2)
 			if err != nil {
-				r.l.Error(err, "http - v2 - shortLink")
-				http.Error(res, fmt.Sprintf("%v", err), http.StatusBadRequest)
+				sr.l.Error(err, "http - v2 - shortLink")
+				http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 				return
 			}
 			gofermart = sh.Slug
-			res.Header().Set("Content-Type", http.DetectContentType(body))
-			res.WriteHeader(http.StatusConflict)
+			w.Header().Set("Content-Type", http.DetectContentType(body))
+			w.WriteHeader(http.StatusConflict)
 		} else {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
-	d := scripts.GetHost(r.cfg.HTTP, gofermart)
-	res.Header().Set("Content-Type", http.DetectContentType(body))
-	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(d))
+	d := scripts.GetHost(sr.cfg.HTTP, gofermart)
+	//w.Header().Set("Content-Type", http.DetectContentType(body))
+	//w.WriteHeader(http.StatusCreated)
+	//w.Write([]byte(d))
+	sr.respond(w, r, http.StatusCreated, d)
 }
 
 // GET
-func (r *shorturlRoutes) urls(res http.ResponseWriter, req *http.Request) {
+func (sr *gofermartRoutes) urls(w http.ResponseWriter, r *http.Request) {
 	u := entity.User{}
-	userID := req.Context().Value("access_token")
+	userID := r.Context().Value("access_token")
 	if userID == nil {
-		res.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
+		w.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
 	}
 	u.UserID = fmt.Sprintf("%s", userID)
-	user, err := r.s.UserAllLink(req.Context(), &u)
+	user, err := sr.s.UserAllLink(r.Context(), &u)
 	if err != nil {
-		r.l.Error(err, "http - v1 - shortLink")
-		http.Error(res, fmt.Sprintf("%v", err), http.StatusBadRequest)
+		sr.l.Error(err, "http - v1 - shortLink")
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	obj, err := json.Marshal(user.Urls)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
 	log.Printf("%v", len(obj))
-	res.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
 	if string(obj) == "null" {
-		res.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
 	} else {
-		res.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusOK)
 	}
-	res.Write(obj)
+	w.Write(obj)
 }
 
 // @Summary     Return JSON short URL
@@ -183,99 +184,137 @@ func (r *shorturlRoutes) urls(res http.ResponseWriter, req *http.Request) {
 // @Success     307 {object} string
 // @Failure     500 {object} response
 // @Router      /shorten [post]
-func (r *shorturlRoutes) shorten(res http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	data := entity.Gofermart{Config: r.cfg}
+func (sr *gofermartRoutes) shorten(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	data := entity.Gofermart{Config: sr.cfg}
 	resp := entity.GofermartResponse{}
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	data.Slug = scripts.UniqueString()
 	if err := json.Unmarshal(body, &data); err != nil {
 		panic(err)
 	}
-	//data.UserID = req.Context().Value(r.cfg.Cookie.AccessTokenName).(string)
-	resp.URL, err = r.s.Shorten(ctx, &data)
-
+	//data.UserID = r.Context().Value(sr.cfg.Cookie.AccessTokenName).(string)
+	resp.URL, err = sr.s.Shorten(ctx, &data)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Gofermart{Config: r.cfg}
+			data2 := entity.Gofermart{Config: sr.cfg}
 			data2.URL = data.URL
-			sh, err := r.s.ShortLink(ctx, &data2)
+			sh, err := sr.s.ShortLink(ctx, &data2)
 			if err != nil {
-				http.Error(res, err.Error(), http.StatusBadRequest)
+				sr.error(w, r, http.StatusBadRequest, err)
 			}
 			resp.URL = sh.Slug
-			res.Header().Set("Content-Type", "application/json")
-			res.WriteHeader(http.StatusConflict)
+			sr.respond(w, r, http.StatusConflict, resp)
 		} else {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			sr.error(w, r, http.StatusBadRequest, err)
 			return
 		}
 	}
-	resp.URL = scripts.GetHost(r.cfg.HTTP, resp.URL)
+	resp.URL = scripts.GetHost(sr.cfg.HTTP, resp.URL)
 	obj, err := json.Marshal(resp)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(http.StatusCreated)
-	res.Write(obj)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(obj)
 }
 
-func (r *shorturlRoutes) register(res http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	data := entity.Gofermart{}
-	Authentication := entity.Authentication{Config: r.cfg}
-	body, err := io.ReadAll(req.Body)
+// @Summary     Return JSON empty
+// @Description Redirect to log URL
+// @ID          handleUserCreate
+// @Tags  	    gofermart
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} response — пользователь успешно зарегистрирован и аутентифицирован
+// @Failure     400 {object} response — неверный формат запроса
+// @Failure     409 {object} response — логин уже занят
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/register [post]
+func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	a := &entity.Authentication{Config: sr.cfg}
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
-	if err = json.Unmarshal(body, &Authentication); err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+	if err = json.Unmarshal(body, &a); err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-
-	// если значения пустое
-	if len(Authentication.Login) < 1 || len(Authentication.Password) < 1 {
-		http.Error(res, "неверный формат запроса", http.StatusBadRequest)
-		return
-	}
-	var rs entity.Response
-	var sr entity.ShortenResponse
-
-	err = r.s.Register(ctx, &Authentication)
+	err = sr.s.Register(ctx, a)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			res.WriteHeader(http.StatusConflict)
+			sr.error(w, r, http.StatusConflict, err)
 			return
 		}
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-	sr.Slug = data.Slug
-	sr.URL = scripts.GetHost(r.cfg.HTTP, data.Slug)
-	rs = append(rs, sr)
 
-	obj, err := json.Marshal(rs)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(http.StatusOK)
-	res.Write(obj)
+	a.Sanitize()
+	sr.respond(w, r, http.StatusOK, a)
 }
-func (r *shorturlRoutes) batch(res http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
-	data := entity.Gofermart{Config: r.cfg}
-	CorrelationOrigin := entity.CorrelationOrigin{}
-	body, err := io.ReadAll(req.Body)
+
+// @Summary     Return JSON empty
+// @Description Authentication user
+// @ID          handleUserLogin
+// @Tags  	    gofermart
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} response — пользователь успешно аутентифицирован
+// @Failure     400 {object} response — неверный формат запроса
+// @Failure     401 {object} response — неверная пара логин/пароль
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/login [post]
+func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Request) {
+	a := &entity.Authentication{Config: sr.cfg}
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		panic(err)
+	}
+	if err = json.Unmarshal(body, &a); err != nil {
+		sr.error(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := a.Validate(); err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if err := a.BeforeCreate(); err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	u, err := sr.s.FindByLogin(r.Context(), a.Login) // will return the user by login
+	if err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if !u.ComparePassword(a.Password) {
+		sr.error(w, r, http.StatusUnauthorized, ErrIncorrectLoginOrPass)
+		return
+	}
+	sr.respond(w, r, http.StatusOK, nil)
+}
+
+// batch
+func (sr *gofermartRoutes) batch(w http.ResponseWriter, r *http.Request) {
+	data := entity.Gofermart{Config: sr.cfg}
+	CorrelationOrigin := entity.CorrelationOrigin{}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err = json.Unmarshal(body, &CorrelationOrigin); err != nil {
@@ -283,45 +322,46 @@ func (r *shorturlRoutes) batch(res http.ResponseWriter, req *http.Request) {
 	}
 
 	var rs entity.Response
-	var sr entity.ShortenResponse
+	var gr entity.GoferResponse
 	for _, bt := range CorrelationOrigin {
 		data.URL = bt.URL
 		data.Slug = bt.Slug
-		_, err = r.s.Shorten(ctx, &data)
+		_, err = sr.s.Shorten(r.Context(), &data)
 		if err != nil {
 			if errors.Is(err, repo.ErrAlreadyExists) {
-				res.WriteHeader(http.StatusConflict)
+				sr.error(w, r, http.StatusConflict, err)
 				return
 			}
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			sr.error(w, r, http.StatusBadRequest, err)
 			return
 		}
-		sr.Slug = data.Slug
-		sr.URL = scripts.GetHost(r.cfg.HTTP, data.Slug)
-		rs = append(rs, sr)
+		gr.Slug = data.Slug
+		gr.URL = scripts.GetHost(sr.cfg.HTTP, data.Slug)
+		rs = append(rs, gr)
 	}
 
-	obj, err := json.Marshal(rs)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(http.StatusCreated)
-	res.Write(obj)
+	//obj, err := json.Marshal(rs)
+	//if err != nil {
+	//	sr.error(w, r, http.StatusBadRequest, err)
+	//	return
+	//}
+	//w.Header().Set("Content-Type", "application/json")
+	//w.WriteHeader(http.StatusCreated)
+	//w.Write(obj)
+	sr.respond(w, r, http.StatusCreated, rs)
 }
 
-// Асинхронный (КАБУДА!) хендлер DELETE /api/user/urls,
+// Асинхронный хендлер DELETE /api/user/urls,
 // который принимает список идентификаторов сокращённых URL для удаления
 // в формате: [ "a", "b", "c", "d", ...]
 // В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
 // Фактический результат удаления может происходить позже — каким-либо
 // образом оповещать пользователя об успешности или неуспешности не нужно.
-func (r *shorturlRoutes) delUrls(res http.ResponseWriter, req *http.Request) {
+func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if err = json.Unmarshal(body, &slugs); err != nil {
@@ -329,9 +369,9 @@ func (r *shorturlRoutes) delUrls(res http.ResponseWriter, req *http.Request) {
 	}
 
 	u := entity.User{}
-	userID := req.Context().Value("access_token")
+	userID := r.Context().Value("access_token")
 	if userID == nil {
-		res.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
+		w.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
 	}
 	u.UserID = fmt.Sprintf("%s", userID)
 	u.DelLink = slugs
@@ -349,51 +389,39 @@ func (r *shorturlRoutes) delUrls(res http.ResponseWriter, req *http.Request) {
 	workerChs := make([]chan entity.User, 0, workersCount)
 	for _, fanOutCh := range fanOutChs {
 		workerCh := make(chan entity.User)
-		newWorker(r, req, fanOutCh, workerCh)
+		newWorker(sr, r, fanOutCh, workerCh)
 		workerChs = append(workerChs, workerCh)
 	}
 
 	// здесь fanIn
 	for v := range fanIn(workerChs...) {
-		r.l.Info("%s\n", v.UserID)
+		sr.l.Info("%s\n", v.UserID)
 	}
-	//-- end fanOut fanIn
 
-	//-- not multithreading
-	//for i := 0; i < len(slugs); i++ {
-	//	fmt.Printf("SLUG#%d: %s\n", i, slugs[i])
-	//	err = r.s.UserDelLink(req.Context(), &u)
-	//}
-	//if err != nil {
-	//	r.l.Error(err, "http - v1 - delUrls")
-	//	http.Error(res, fmt.Sprintf("%v", err), http.StatusBadRequest)
-	//	return
-	//}
-	//-- end not multithreading
-
-	res.WriteHeader(http.StatusAccepted)
-	res.Header().Set("Content-Type", "application/json")
-	res.Write([]byte("Ok!"))
+	w.WriteHeader(http.StatusAccepted)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte("Ok!"))
+	sr.respond(w, r, http.StatusAccepted, "")
 }
 
-func (r *shorturlRoutes) delUrls2(res http.ResponseWriter, req *http.Request) {
+func (sr *gofermartRoutes) delUrls2(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
 	const workersCount = 10
 	inputCh := make(chan entity.User)
 
 	go func() {
-		body, err := io.ReadAll(req.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if err := json.Unmarshal(body, &slugs); err != nil {
 			panic(err)
 		}
 		u := entity.User{}
-		userID := req.Context().Value("access_token")
+		userID := r.Context().Value("access_token")
 		if userID == nil {
-			res.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
+			w.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
 		}
 		u.UserID = fmt.Sprintf("%s", userID)
 		u.DelLink = slugs
@@ -406,26 +434,26 @@ func (r *shorturlRoutes) delUrls2(res http.ResponseWriter, req *http.Request) {
 	workerChs := make([]chan entity.User, 0, workersCount)
 	for _, fanOutCh := range fanOutChs {
 		workerCh := make(chan entity.User)
-		newWorker(r, req, fanOutCh, workerCh)
+		newWorker(sr, r, fanOutCh, workerCh)
 		workerChs = append(workerChs, workerCh)
 	}
 
 	// здесь fanIn
 	for v := range fanIn(workerChs...) {
-		r.l.Info("%s\n", v.UserID)
+		sr.l.Info("%s\n", v.UserID)
 	}
 
-	res.WriteHeader(http.StatusAccepted)
-	res.Header().Set("Content-Type", "application/json")
-	res.Write([]byte("Ok!"))
+	w.WriteHeader(http.StatusAccepted)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte("Ok!"))
 }
 
-func newWorker(r *shorturlRoutes, req *http.Request, input, out chan entity.User) {
+func newWorker(sr *gofermartRoutes, r *http.Request, input, out chan entity.User) {
 	go func() {
 		us := entity.User{}
 		for u := range input {
 			fmt.Printf("UserID: %s, DelLink: %s count: %v ", u.UserID, u.DelLink, len(u.DelLink))
-			r.s.UserDelLink(req.Context(), &u)
+			sr.s.UserDelLink(r.Context(), &u)
 			out <- us
 		}
 		close(out)
@@ -487,4 +515,15 @@ func fanOut(inputCh chan entity.User, n int) []chan entity.User {
 	}()
 
 	return chs
+}
+
+func (sr *gofermartRoutes) error(w http.ResponseWriter, r *http.Request, code int, err error) {
+	sr.respond(w, r, code, map[string]string{"error": err.Error()})
+}
+func (sr *gofermartRoutes) respond(w http.ResponseWriter, r *http.Request, code int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	if data != nil {
+		json.NewEncoder(w).Encode(data)
+	}
 }

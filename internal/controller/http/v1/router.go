@@ -41,7 +41,7 @@ func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *c
 	handler.Use(middleware.Logger)
 	handler.Use(middleware.Recoverer)
 	handler.Use(render.SetContentType(render.ContentTypePlainText))
-	handler.Use(encryp.EncryptionKeyCookie)
+	handler.Use(encryp.RequireAuthentication)
 	//handler.Use(gzip.CompressGzip)
 	handler.Use(gzip.DeCompressGzip)
 
@@ -50,7 +50,7 @@ func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *c
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
-	sr := &shorturlRoutes{s, l, cfg}
+	sr := &gofermartRoutes{s, l, cfg}
 
 	handler.Route("/", func(handler chi.Router) {
 		//handler.Handle("/", gzip.DeCompressGzip(http.HandlerFunc(sr.longLink)))

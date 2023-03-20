@@ -1,6 +1,9 @@
 package scripts
 
 import (
+	"bytes"
+	"crypto/md5"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"github.com/SETTER2000/gofermart/config"
@@ -98,4 +101,42 @@ func Trim(s string, t string) (string, error) {
 	}
 
 	return s, nil
+}
+
+func EncryptString(s string) (string, error) {
+	salt := "poaleell"
+	h := sha256.New()
+	h.Write([]byte(s + salt))
+	dst := h.Sum(nil)
+	return fmt.Sprintf("%x", dst), nil
+}
+
+func СheckPasswd() {
+	var (
+		data  []byte         // слайс случайных байт
+		hash1 []byte         // хеш с использованием интерфейса hash.Hash
+		hash2 [md5.Size]byte // хеш, возвращаемый функцией md5.Sum
+	)
+
+	// 1) генерация data длиной 512 байт
+	data = make([]byte, 512)
+	_, err := rand.Read(data)
+	if err != nil {
+		panic(err)
+	}
+
+	// 2) вычисление hash1 с использованием md5.New
+	h := md5.New()
+	h.Write(data)
+	hash1 = h.Sum(nil)
+
+	// 3) вычисление hash2 функцией md5.Sum
+	hash2 = md5.Sum(data)
+
+	// hash2[:] приводит массив байт к слайсу
+	if bytes.Equal(hash1, hash2[:]) {
+		fmt.Println("Всё правильно! Хеши равны")
+	} else {
+		fmt.Println("Что-то пошло не так")
+	}
 }
