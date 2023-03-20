@@ -15,7 +15,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -94,8 +93,6 @@ func (sr *gofermartRoutes) connect(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		defer db.Close(context.Background())
-		//w.WriteHeader(http.StatusOK)
-		//w.Write([]byte("connect... "))
 		sr.respond(w, r, http.StatusOK, "connect... ")
 	}
 }
@@ -113,7 +110,8 @@ func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//http.Error(w, err.Error(), http.StatusInternalServerError)
+		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	data := entity.Gofermart{Config: sr.cfg}
@@ -167,7 +165,7 @@ func (sr *gofermartRoutes) urls(w http.ResponseWriter, r *http.Request) {
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-	log.Printf("%v", len(obj))
+
 	w.Header().Set("Content-Type", "application/json")
 	if string(obj) == "null" {
 		w.WriteHeader(http.StatusNoContent)

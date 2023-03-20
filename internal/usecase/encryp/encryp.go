@@ -40,7 +40,7 @@ func (e *Encrypt) isAuthenticated(r *http.Request) bool {
 	// содержащийся в ней, и проверяем подпись
 	_, err = e.DecryptToken(at.Value, secretSecret)
 	if err != nil {
-		fmt.Errorf("error decrypt cookie: %e", err)
+		fmt.Printf("error decrypt cookie: %e", err)
 		return false
 	}
 	return true
@@ -114,13 +114,15 @@ func Session(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// EncryptionKeyCookie - middleware
 func EncryptionKeyCookie(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		en := Encrypt{}
 		idUser := ""
 		at, err := r.Cookie("access_token")
-		// если куки нет ничего не делаем, выходим
+		// если куки нет, то ничего не делаем, просто выходим
 		if err == http.ErrNoCookie {
 			ctx = context.WithValue(ctx, x, idUser)
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -148,26 +150,14 @@ func EncryptionKeyCookie(next http.Handler) http.Handler {
 		}
 		// если кука есть, то расшифровываем её и проверяем подпись
 		idUser, err = en.DecryptToken(at.Value, secretSecret)
-		// ..если подпись не соответствует, то очищаем куку и выходим
+		// ...если подпись не соответствует, то очищаем куку и выходим
 		if err != nil {
 			fmt.Printf("Decrypt token error: %v\n", err)
-			// создать токен
-			//token, err := en.EncryptToken(secretSecret)
-			//if err != nil {
-			//	fmt.Printf("Encrypt error: %v\n", err)
-			//}
-			//sessionLifeNanos := 100000000000
 			http.SetCookie(w, &http.Cookie{
 				Name:  "access_token",
 				Path:  "/",
-				Value: "токен плохой",
-				//Expires: time.Now().Add(time.Nanosecond * time.Duration(sessionLifeNanos)),
+				Value: "",
 			})
-
-			//idUser, err = en.DecryptToken(token, secretSecret)
-			//if err != nil {
-			//	fmt.Printf(" Decrypt error: %v\n", err)
-			//}
 			ctx = context.WithValue(ctx, x, "")
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
