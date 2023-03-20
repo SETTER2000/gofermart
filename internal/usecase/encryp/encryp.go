@@ -57,14 +57,11 @@ func RequireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		en := Encrypt{}
-		//idUser := ""
-		//at, err := r.Cookie("access_token")
 		// если не обнаружена кука в запросе ...
 		if !en.isAuthenticated(r) {
 			http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
 			return
 		}
-		//ctx = context.WithValue(ctx, x, idUser)
 		//Предполагая, что аутентификация прошла, запустить исходный обработчик
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
