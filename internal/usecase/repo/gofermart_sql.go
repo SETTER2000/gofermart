@@ -128,7 +128,7 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 
 func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
 	var a entity.Authentication
-	var userId, login, encrypt string
+	var userID, login, encrypt string
 
 	q := `SELECT user_id, login, encrypted_passwd FROM "user" WHERE login=$1`
 	rows, err := i.w.db.Queryx(q, l)
@@ -138,7 +138,7 @@ func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authenticatio
 	}
 	defer rows.Close()
 	for rows.Next() {
-		err := rows.Scan(&userId, &login, &encrypt)
+		err := rows.Scan(&userID, &login, &encrypt)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -147,7 +147,7 @@ func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authenticatio
 	if err != nil {
 		log.Fatal(err)
 	}
-	a.ID = userId
+	a.ID = userID
 	a.Login = login
 	a.EncryptPassword = encrypt
 	return &a, nil

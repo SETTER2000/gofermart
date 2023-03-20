@@ -8,6 +8,7 @@ import (
 	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
 	"github.com/SETTER2000/gofermart/internal/usecase"
+	"github.com/SETTER2000/gofermart/internal/usecase/encryp"
 	"github.com/SETTER2000/gofermart/internal/usecase/repo"
 	"github.com/SETTER2000/gofermart/pkg/log/logger"
 	"github.com/SETTER2000/gofermart/scripts"
@@ -34,6 +35,7 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 		r.Delete("/urls", sr.delUrls2)
 		r.Post("/register", sr.handleUserCreate)
 		r.Post("/login", sr.handleUserLogin)
+		r.Post("/orders", sr.handleUserOrders)
 	})
 	handler.Route("/shorten", func(r chi.Router) {
 		r.Post("/", sr.shorten) // POST /
@@ -52,9 +54,9 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 // @Router      /{key} [get]
 
 func (sr *gofermartRoutes) shortLink(w http.ResponseWriter, r *http.Request) {
-	gofermart := chi.URLParam(r, "key")
+	short := chi.URLParam(r, "key")
 	data := entity.Gofermart{Config: sr.cfg}
-	data.Slug = gofermart
+	data.Slug = short
 	sh, err := sr.s.ShortLink(r.Context(), &data)
 	if err != nil {
 		sr.l.Error(err, "http - v1 - shortLink")
@@ -237,6 +239,11 @@ func (sr *gofermartRoutes) shorten(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} response — внутренняя ошибка сервера
 // @Router      /user/register [post]
 func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Request) {
+	// Регистрация производится по паре логин/пароль.
+	// Каждый логин должен быть уникальным. После успешной регистрации
+	// должна происходить автоматическая аутентификация пользователя.
+	// Для передачи аутентификационных данных используйте
+	// механизм cookies или HTTP-заголовок Authorization.
 	ctx := r.Context()
 	a := &entity.Authentication{Config: sr.cfg}
 	body, err := io.ReadAll(r.Body)
@@ -256,11 +263,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-
-	if err != nil {
-		sr.error(w, r, http.StatusBadRequest, err)
-		return
-	}
+	encryp.SessionCreated(w, r, a.ID)
 	a.Sanitize()
 	sr.respond(w, r, http.StatusOK, a)
 }
@@ -305,7 +308,63 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 		sr.error(w, r, http.StatusUnauthorized, ErrIncorrectLoginOrPass)
 		return
 	}
+
+	encryp.SessionCreated(w, r, u.ID)
+
 	sr.respond(w, r, http.StatusOK, nil)
+}
+
+// @Summary     Return JSON empty
+// @Description Authentication user
+// @ID          handleUserOrders
+// @Tags  	    gofermart
+// @Accept      text
+// @Produce     text
+// @Success     200 {object} response — номер заказа уже был загружен этим пользователем
+// @Success     202 {object} response — новый номер заказа принят в обработку
+// @Failure     400 {object} response — неверный формат запроса
+// @Failure     401 {object} response — пользователь не аутентифицирован
+// @Failure     409 {object} response — номер заказа уже был загружен другим пользователем
+// @Failure     422 {object} response — неверный формат номера заказа
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/orders [post]
+func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
+	// TODO менять
+	ctx := r.Context()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data := entity.Gofermart{Config: sr.cfg}
+	data.URL = string(body)
+	//data.URL, _ = scripts.Trim(string(body), "")
+	data.Slug = scripts.UniqueString()
+	//data.UserID = r.Context().Value("access_token").(string)
+	gofermart, err := sr.s.LongLink(ctx, &data)
+	if err != nil {
+		if errors.Is(err, repo.ErrAlreadyExists) {
+			data2 := entity.Gofermart{Config: sr.cfg, URL: data.URL}
+			//data2.URL = data.URL
+			sh, err := sr.s.ShortLink(ctx, &data2)
+			if err != nil {
+				sr.l.Error(err, "http - v2 - shortLink")
+				http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
+				return
+			}
+			gofermart = sh.Slug
+			w.Header().Set("Content-Type", http.DetectContentType(body))
+			w.WriteHeader(http.StatusConflict)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	d := scripts.GetHost(sr.cfg.HTTP, gofermart)
+	//w.Header().Set("Content-Type", http.DetectContentType(body))
+	//w.WriteHeader(http.StatusCreated)
+	//w.Write([]byte(d))
+	sr.respond(w, r, http.StatusCreated, d)
 }
 
 // batch

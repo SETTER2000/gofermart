@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/SETTER2000/gofermart/internal/entity"
+	"log"
 )
 
 var (
@@ -43,6 +44,7 @@ func (uc *GofermartUseCase) Register(ctx context.Context, auth *entity.Authentic
 
 func (uc *GofermartUseCase) Shorten(ctx context.Context, sh *entity.Gofermart) (string, error) {
 	sh.UserID = ctx.Value(sh.Cookie.AccessTokenName).(string)
+	log.Printf("sh.Cookie.AccessTokenName: %s", sh.UserID)
 	err := uc.repo.Post(ctx, sh)
 	if err != nil {
 		return "", err
