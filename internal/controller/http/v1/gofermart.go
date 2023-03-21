@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -229,8 +228,8 @@ func (sr *gofermartRoutes) shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Return JSON empty
-// @Description Регистрация пользователя
-// @ID          handleUserCreate
+// @Description Redirect to log URL
+// @ID          Регистрация пользователя
 // @Tags  	    gofermart
 // @Accept      json
 // @Produce     json
@@ -270,8 +269,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 }
 
 // @Summary     Return JSON empty
-// @Description Аутентификация пользователя
-// @ID          handleUserLogin
+// @ID          Аутентификация пользователя
 // @Tags  	    gofermart
 // @Accept      json
 // @Produce     json
@@ -317,27 +315,25 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 
 // IsAuthenticated проверка авторизирован ли пользователь, по сути проверка токена на пригодность
 // TODO возможно здесь нужно реализовать проверку времени жизни токена
-func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Request) {
+func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 	var e encryp.Encrypt
 	at, err := r.Cookie("access_token")
 	if err == http.ErrNoCookie {
-		sr.respond(w, r, http.StatusUnauthorized, nil)
-		return
+		return false
 	}
 	// если кука обнаружена, то расшифровываем токен,
 	// содержащийся в ней, и проверяем подпись
 	dt, err := e.DecryptToken(at.Value, sr.cfg.SecretKey)
 	if err != nil {
 		fmt.Printf("error decrypt cookie: %e", err)
-		sr.respond(w, r, http.StatusUnauthorized, nil)
-		return
+		return false
 	}
 	//fmt.Printf("User ID расшифрованный из токена:: %s\n", dt)
 	_, err = sr.s.FindByID(r.Context(), dt)
 	if err != nil {
-		sr.respond(w, r, http.StatusUnauthorized, nil)
-		return
+		return false
 	}
+	return true
 }
 
 // @Summary     Return JSON empty
@@ -356,8 +352,16 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 // @Router      /user/orders [post]
 func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
 	// TODO менять
-	sr.IsAuthenticated(w, r)                // проверка аутентификации
-	sr.ContentTypeCheck(w, r, "text/plain") // проверка правильного формата запроса
+	// проверка аутентификации
+	if !sr.IsAuthenticated(w, r) {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	// проверка правильного формата запроса
+	if !sr.ContentTypeCheck(w, r, "text/plain") {
+		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
+		return
+	}
 	ctx := r.Context()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -365,8 +369,8 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	data := entity.Gofermart{Config: sr.cfg}
-	data.Order = strings.TrimSpace(string(body))
-	order, _ := strconv.Atoi(data.Order)
+	data.Order, _ = scripts.TrimEmpty(string(body))
+	order, err := strconv.Atoi(data.Order)
 	if !luna.Luna(order) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
@@ -384,7 +388,7 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 			}
 
 			if sh.UserID != data.UserID {
-				sr.respond(w, r, http.StatusConflict, nil)
+				sr.respond(w, r, http.StatusConflict, "номер заказа уже был загружен другим пользователем")
 			}
 			sr.respond(w, r, http.StatusOK, nil)
 			return
@@ -503,12 +507,11 @@ func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 }
 
 // ContentTypeCheck проверка соответствует ли content-type запроса endpoint
-func (sr *gofermartRoutes) ContentTypeCheck(w http.ResponseWriter, r *http.Request, t string) {
-	ct := r.Header.Get("Content-Type")
-	if ct != t {
-		sr.respond(w, r, http.StatusBadRequest, nil)
-		return
+func (sr *gofermartRoutes) ContentTypeCheck(w http.ResponseWriter, r *http.Request, t string) bool {
+	if r.Header.Get("Content-Type") != t {
+		return false
 	}
+	return true
 }
 func (sr *gofermartRoutes) delUrls2(w http.ResponseWriter, r *http.Request) {
 	var slugs []string

@@ -88,12 +88,12 @@ func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
 	return nil
 }
 
-func (i *InSQL) OrderIn(ctx context.Context, sh *entity.Gofermart) error {
+func (i *InSQL) OrderIn(ctx context.Context, g *entity.Gofermart) error {
 	stmt, err := i.w.db.Prepare("INSERT INTO public.order (order_id, user_id) VALUES ($1,$2)")
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = stmt.Exec(sh.Order, sh.UserID)
+	_, err = stmt.Exec(g.Order, g.UserID)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
 			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
