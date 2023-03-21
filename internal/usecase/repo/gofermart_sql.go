@@ -88,18 +88,35 @@ func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
 	return nil
 }
 
-func (i *InSQL) OrderIn(ctx context.Context, g *entity.Gofermart) error {
-	stmt, err := i.w.db.Prepare("INSERT INTO public.order (order_id, user_id) VALUES ($1,$2)")
+func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
+	stmt, err := i.w.db.Prepare("INSERT INTO public.order (number, user_id, uploaded_at, status, accrual) VALUES ($1,$2, now(),$3,$4)")
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = stmt.Exec(g.Order, g.UserID)
+	_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
 			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
 		}
 		return err
 	}
+	return nil
+}
+
+// BalanceWriteOff запрос на списание средств
+func (i *InSQL) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
+	// TODO queue 😇
+	//stmt, err := i.w.db.Prepare("INSERT INTO public.order (number, user_id, uploaded_at, status, accrual) VALUES ($1,$2, now(),$3,$4)")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
+	//if err, ok := err.(*pgconn.PgError); ok {
+	//	if err.Code == pgerrcode.UniqueViolation {
+	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+	//	}
+	//	return err
+	//}
 	return nil
 }
 
@@ -141,17 +158,17 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 	return sh, nil
 }
 
-// OrderGetByID поиск по ID ордера
-func (i *InSQL) OrderGetByID(ctx context.Context, g *entity.Gofermart) (*entity.Gofermart, error) {
-	var id, user string
-	q := `SELECT order_id, user_id FROM "order" WHERE order_id=$1`
-	rows, err := i.w.db.Queryx(q, g.Order)
+// OrderGetByNumber поиск по ID ордера
+func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.Order, error) {
+	var number, userID, uploadedAt, status, accrual string
+	q := `SELECT number, user_id, uploaded_at, status, accrual FROM "order" WHERE number=$1`
+	rows, err := i.w.db.Queryx(q, o.Number)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		err := rows.Scan(&id, &user)
+		err := rows.Scan(&number, &userID, &uploadedAt, &status, &accrual)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -160,9 +177,12 @@ func (i *InSQL) OrderGetByID(ctx context.Context, g *entity.Gofermart) (*entity.
 	if err != nil {
 		log.Fatal(err)
 	}
-	g.Order = id
-	g.UserID = user
-	return g, nil
+	o.Number = number
+	o.UserID = userID
+	o.UploadedAt = uploadedAt
+	o.Status = status
+	o.Accrual = accrual
+	return o, nil
 }
 
 func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
@@ -246,6 +266,34 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 	}
 	return u, nil
 }
+
+func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	var number, userID, uploadedAt, status, accrual string
+	// 2020-12-10T15:15:45+03:00
+	q := `SELECT number, user_id, to_char(uploaded_at::timestamptz, 'YYYY-MM-DD"T"HH24:MI:SSOF:00'), status, accrual FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
+	rows, err := i.w.db.Queryx(q, u.UserID)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	o := entity.Order{}
+	ol := entity.OrderList{}
+	for rows.Next() {
+		err = rows.Scan(&number, &userID, &uploadedAt, &status, &accrual)
+		if err != nil {
+			return nil, err
+		}
+		o.Number = number
+		o.Status = status
+		o.Accrual = accrual
+		o.UploadedAt = uploadedAt
+		ol = append(ol, o)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return &ol, nil
+}
 func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 	q := `UPDATE gofermart SET del = $1
 	FROM (SELECT unnest($2::text[]) AS slug) AS data_table
@@ -274,7 +322,6 @@ func Connect(cfg *config.Config) (db *sqlx.DB) {
 	db.SetMaxOpenConns(n)
 	schema := `
 -- CREATE EXTENSION "uuid-ossp";
-
 CREATE TABLE IF NOT EXISTS public.user
 (
 	user_id UUID NOT NULL DEFAULT uuid_generate_v1(),
@@ -291,14 +338,24 @@ CREATE TABLE IF NOT EXISTS public.gofermart
    del BOOLEAN DEFAULT FALSE
 );
 
+-- CREATE TYPE state AS ENUM ('REGISTERED', 'INVALID','PROCESSING', 'PROCESSED') ;
+--create types
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'state') THEN
+        CREATE TYPE state AS ENUM ('REGISTERED', 'INVALID','PROCESSING', 'PROCESSED');
+    END IF;
+    --more types here...
+END$$;
 CREATE TABLE IF NOT EXISTS public.order (
-  order_id NUMERIC PRIMARY KEY,
+  number NUMERIC PRIMARY KEY,
   user_id uuid,
   foreign key (user_id) references public."user" (user_id)
-  match simple on update no action on delete no action
+  match simple on update no action on delete no action,
+  uploaded_at TIMESTAMP(0) WITH TIME ZONE,
+  accrual NUMERIC,
+  status state
 );
-
-
 `
 	db.MustExec(schema)
 	if err != nil {

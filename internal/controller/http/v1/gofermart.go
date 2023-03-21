@@ -33,11 +33,13 @@ type gofermartRoutes struct {
 func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interface, cfg *config.Config) {
 	sr := &gofermartRoutes{s, l, cfg}
 	handler.Route("/user", func(r chi.Router) {
-		r.Get("/urls", sr.urls)
 		r.Delete("/urls", sr.delUrls2)
+		r.Get("/urls", sr.urls)
+		r.Get("/orders", sr.handleUserOrdersGet)
 		r.Post("/register", sr.handleUserCreate)
 		r.Post("/login", sr.handleUserLogin)
 		r.Post("/orders", sr.handleUserOrders)
+		r.Post("/balance/withdraw", sr.handleUserBalanceWithdraw)
 	})
 	handler.Route("/shorten", func(r chi.Router) {
 		r.Post("/", sr.shorten) // POST /
@@ -264,7 +266,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-	encryp.SessionCreated(w, r, a.ID)
+	sr.SessionCreated(w, r, a.ID)
 	a.Sanitize()
 	sr.respond(w, r, http.StatusOK, a)
 }
@@ -289,7 +291,6 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
-
 	if err := a.Validate(); err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
@@ -298,8 +299,7 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-
-	u, err := sr.s.FindByLogin(r.Context(), a.Login) // will return the user by login
+	u, err := sr.s.UserFindByLogin(r.Context(), a.Login) // will return the user by login
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
@@ -308,9 +308,7 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 		sr.error(w, r, http.StatusUnauthorized, ErrIncorrectLoginOrPass)
 		return
 	}
-
-	encryp.SessionCreated(w, r, u.ID)
-
+	sr.SessionCreated(w, r, u.ID)
 	sr.respond(w, r, http.StatusOK, nil)
 }
 
@@ -330,7 +328,7 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 		return false
 	}
 	//fmt.Printf("User ID расшифрованный из токена:: %s\n", dt)
-	_, err = sr.s.FindByID(r.Context(), dt)
+	_, err = sr.s.UserFindByID(r.Context(), dt)
 	return err == nil
 }
 
@@ -366,26 +364,30 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		sr.respond(w, r, http.StatusInternalServerError, nil)
 		return
 	}
-	data := entity.Gofermart{Config: sr.cfg}
-	data.Order = strings.TrimSpace(string(body))
-	order, _ := strconv.Atoi(data.Order)
+	o := entity.Order{Config: sr.cfg}
+	o.Number = strings.TrimSpace(string(body))
+	order, _ := strconv.Atoi(o.Number)
 	if !luna.Luna(order) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
-	data.UserID = ctx.Value("access_token").(string)
-	_, err = sr.s.OrderAdd(ctx, &data)
+	o.UserID = ctx.Value("access_token").(string)
+	o.Status = "REGISTERED"
+	strAcc := "500"
+	o.Accrual = strings.TrimSpace(strAcc)
+
+	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Gofermart{Config: sr.cfg, Order: data.Order}
-			sh, err := sr.s.OrderFindByID(ctx, &data2)
+			data2 := entity.Order{Config: sr.cfg, Number: o.Number}
+			o2, err := sr.s.OrderFindByID(ctx, &data2)
 			if err != nil {
 				sr.l.Error(err, "http - v1 - handleUserOrders")
 				sr.respond(w, r, http.StatusBadRequest, nil)
 				return
 			}
 
-			if sh.UserID != data.UserID {
+			if o2.UserID != o.UserID {
 				sr.respond(w, r, http.StatusConflict, "номер заказа уже был загружен другим пользователем")
 			}
 			sr.respond(w, r, http.StatusOK, nil)
@@ -406,6 +408,107 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte("новый номер заказа принят в обработку"))
 	//sr.respond(w, r, http.StatusAccepted, gofermart)
+}
+
+// @Summary     Return JSON
+// @Description Запрос на списание средств
+// @ID          handleUserBalanceWithdraw
+// @Tags  	    gofermart
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} response — успешная обработка запроса
+// @Failure     401 {object} response — пользователь не авторизован
+// @Failure     402 {object} response — на счету недостаточно средств
+// @Failure     422 {object} response — неверный формат номера заказа
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/balance/withdraw [post]
+func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	// проверка аутентификации
+	if !sr.IsAuthenticated(w, r) {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	// проверка правильного формата запроса
+	if !sr.ContentTypeCheck(w, r, "text/plain") {
+		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
+		return
+	}
+	o := entity.Order{Config: sr.cfg}
+	wd := entity.Withdraw{}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+	if err = json.Unmarshal(body, &wd); err != nil {
+		sr.error(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	o.Number = strings.TrimSpace(wd.Order)
+	order, _ := strconv.Atoi(o.Number)
+	if !luna.Luna(order) { // цветы, цветы
+		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
+		return
+	}
+	o.UserID = ctx.Value("access_token").(string)
+	o.Status = "REGISTERED"
+	strAcc := "500"
+	o.Accrual = strings.TrimSpace(strAcc)
+
+	err = sr.s.BalanceWithdraw(ctx, &wd)
+	//_, err = sr.s.OrderAdd(ctx, &o)
+	if err != nil {
+		if errors.Is(err, repo.ErrAlreadyExists) {
+			data2 := entity.Order{Config: sr.cfg, Number: o.Number}
+			o2, err := sr.s.OrderFindByID(ctx, &data2)
+			if err != nil {
+				sr.l.Error(err, "http - v1 - handleUserOrders")
+				sr.respond(w, r, http.StatusBadRequest, nil)
+				return
+			}
+
+			if o2.UserID != o.UserID {
+				sr.respond(w, r, http.StatusConflict, "номер заказа уже был загружен другим пользователем")
+			}
+			sr.respond(w, r, http.StatusOK, nil)
+			return
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	sr.respond(w, r, http.StatusOK, "в разработке")
+}
+
+// @Summary     Return JSON empty
+// @Description Получение списка загруженных номеров заказов
+// @ID          handleUserOrdersGet
+// @Tags  	    gofermart
+// @Accept      text
+// @Produce     text
+// @Success     200 {object} response — успешная обработка запроса
+// @Success     204 {object} response — нет данных для ответа
+// @Failure     401 {object} response — пользователь не аутентифицирован
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/orders [get]
+func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Request) {
+	// проверка аутентификации
+	if !sr.IsAuthenticated(w, r) {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	ctx := r.Context()
+	u := entity.User{}
+	u.UserID = ctx.Value("access_token").(string)
+	ol, err := sr.s.OrderList(ctx, &u)
+	if err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
+	}
+	if len(*ol) < 1 {
+		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
+	}
+	sr.respond(w, r, http.StatusOK, ol)
 }
 
 // batch
@@ -630,4 +733,33 @@ func (sr *gofermartRoutes) respond(w http.ResponseWriter, r *http.Request, code 
 	if data != nil {
 		json.NewEncoder(w).Encode(data)
 	}
+}
+
+func (sr *gofermartRoutes) SessionCreated(w http.ResponseWriter, r *http.Request, data string) error {
+	//ctx := r.Context()
+	en := encryp.Encrypt{}
+	// ...создать подписанный секретным ключом токен,
+	token, err := en.EncryptToken(sr.cfg.SecretKey, data)
+	if err != nil {
+		fmt.Printf("Encrypt error: %v\n", err)
+		return err
+	}
+	// ...установить куку с именем access_token,
+	// а в качестве значения установить зашифрованный,
+	// подписанный токен
+	http.SetCookie(w, &http.Cookie{
+		Name:    "access_token",
+		Value:   token,
+		Path:    "/",
+		Expires: time.Now().Add(time.Minute * 60),
+	})
+
+	_, err = en.DecryptToken(token, sr.cfg.SecretKey)
+	if err != nil {
+		fmt.Printf(" Decrypt error: %v\n", err)
+		return err
+	}
+	//context.WithValue(ctx, x, idUser)
+	//next.ServeHTTP(w, r.WithContext(ctx))
+	return nil
 }

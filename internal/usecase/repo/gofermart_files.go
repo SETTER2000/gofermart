@@ -102,7 +102,7 @@ func (i *InFiles) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Goferm
 	return i.searchBySlug(sh)
 }
 
-func (i *InFiles) OrderGetByID(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
+func (i *InFiles) OrderGetByNumber(ctx context.Context, sh *entity.Order) (*entity.Order, error) {
 	return nil, nil
 }
 func (i *InFiles) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
@@ -111,7 +111,13 @@ func (i *InFiles) GetByLogin(ctx context.Context, l string) (*entity.Authenticat
 func (i *InFiles) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {
 	return nil, nil
 }
-func (i *InFiles) OrderIn(ctx context.Context, sh *entity.Gofermart) error {
+func (i *InFiles) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	return nil, nil
+}
+func (i *InFiles) OrderIn(ctx context.Context, sh *entity.Order) error {
+	return nil
+}
+func (i *InFiles) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
 	return nil
 }
 func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {

@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"time"
 )
 
 const (
@@ -239,33 +238,4 @@ func CheckToken(msg string) bool {
 
 	fmt.Println("Подпись неверна. Где-то ошибка...")
 	return false
-}
-
-func SessionCreated(w http.ResponseWriter, r *http.Request, data string) error {
-	//ctx := r.Context()
-	en := Encrypt{}
-	// ...создать подписанный секретным ключом токен,
-	token, err := en.EncryptToken(secretSecret, data)
-	if err != nil {
-		fmt.Printf("Encrypt error: %v\n", err)
-		return err
-	}
-	// ...установить куку с именем access_token,
-	// а в качестве значения установить зашифрованный,
-	// подписанный токен
-	http.SetCookie(w, &http.Cookie{
-		Name:    "access_token",
-		Value:   token,
-		Path:    "/",
-		Expires: time.Now().Add(time.Minute * 60),
-	})
-
-	_, err = en.DecryptToken(token, secretSecret)
-	if err != nil {
-		fmt.Printf(" Decrypt error: %v\n", err)
-		return err
-	}
-	//context.WithValue(ctx, x, idUser)
-	//next.ServeHTTP(w, r.WithContext(ctx))
-	return nil
 }
