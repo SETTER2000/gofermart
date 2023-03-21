@@ -330,10 +330,7 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 	}
 	//fmt.Printf("User ID расшифрованный из токена:: %s\n", dt)
 	_, err = sr.s.FindByID(r.Context(), dt)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // @Summary     Return JSON empty
@@ -508,10 +505,7 @@ func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 
 // ContentTypeCheck проверка соответствует ли content-type запроса endpoint
 func (sr *gofermartRoutes) ContentTypeCheck(w http.ResponseWriter, r *http.Request, t string) bool {
-	if r.Header.Get("Content-Type") != t {
-		return false
-	}
-	return true
+	return r.Header.Get("Content-Type") == t
 }
 func (sr *gofermartRoutes) delUrls2(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
