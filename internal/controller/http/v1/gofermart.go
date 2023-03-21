@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -364,7 +365,7 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	data := entity.Gofermart{Config: sr.cfg}
-	data.Order, _ = scripts.TrimEmpty(string(body))
+	data.Order = strings.TrimSpace(string(body))
 	order, _ := strconv.Atoi(data.Order)
 	if !luna.Luna(order) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
