@@ -337,7 +337,6 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
-	return
 }
 
 // @Summary     Return JSON empty
@@ -366,7 +365,7 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	}
 	data := entity.Gofermart{Config: sr.cfg}
 	data.Order, _ = scripts.TrimEmpty(string(body))
-	order, err := strconv.Atoi(data.Order)
+	order, _ := strconv.Atoi(data.Order)
 	if !luna.Luna(order) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
@@ -509,7 +508,6 @@ func (sr *gofermartRoutes) ContentTypeCheck(w http.ResponseWriter, r *http.Reque
 		sr.respond(w, r, http.StatusBadRequest, nil)
 		return
 	}
-	return
 }
 func (sr *gofermartRoutes) delUrls2(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
