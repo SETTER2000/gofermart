@@ -31,85 +31,10 @@ type Encrypt struct{}
 //			next.ServeHTTP(w, r)
 //		})
 //	}
-func (e *Encrypt) isAuthenticated(r *http.Request) bool {
-	at, err := r.Cookie("access_token")
-	if err == http.ErrNoCookie {
-		return false
-	}
-	// если кука обнаружена, то расшифровываем токен,
-	// содержащийся в ней, и проверяем подпись
-	_, err = e.DecryptToken(at.Value, secretSecret)
-	if err != nil {
-		fmt.Printf("error decrypt cookie: %e", err)
-		return false
-	}
-	return true
-}
-func (e *Encrypt) isCookie(r *http.Request) bool {
-	_, err := r.Cookie("access_token")
-	return err != http.ErrNoCookie
-}
 
-// RequireAuthentication - middleware, которая устанавливает симметрично подписанную
+// EncryptionKeyCookie - middleware, которая устанавливает симметрично подписанную
 // и зашифрованную куку устанавливается любому запросу не имеющему соответствующую куку
 // или не прошедшая идентификацию, в куке зашифрован сгенерированный идентификатор пользователя
-func RequireAuthentication(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		en := Encrypt{}
-		// если не обнаружена кука в запросе ...
-		if !en.isAuthenticated(r) {
-			http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
-			return
-		}
-		//Предполагая, что аутентификация прошла, запустить исходный обработчик
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-func Session(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		en := Encrypt{}
-		//idUser := ""
-		//at, err := r.Cookie("access_token")
-		// если не обнаружена кука в запросе ...
-		if !en.isCookie(r) {
-			ctx := r.Context()
-			//en := Encrypt{}
-			// ...создать подписанный секретным ключом токен,
-			//token, err := en.EncryptToken(secretSecret)
-			//if err != nil {
-			//	fmt.Printf("Encrypt error: %v\n", err)
-			//}
-			// ...установить куку с именем access_token,
-			// а в качестве значения установить зашифрованный,
-			// подписанный токен
-			http.SetCookie(w, &http.Cookie{
-				Name:  "access_token",
-				Path:  "/",
-				Value: "",
-				//Value: token,
-				//Expires: time.Now().Add(time.Nanosecond * time.Duration(sessionLifeNanos)),
-			})
-
-			// декодируем token
-			//idUser, err := en.DecryptToken(token, secretSecret)
-			//if err != nil {
-			//	fmt.Printf(" Decrypt error: %v\n", err)
-			//}
-			//ctx = context.WithValue(ctx, x, idUser)
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
-			//http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
-			//return
-		}
-		//ctx = context.WithValue(ctx, x, idUser)
-		//Предполагая, что аутентификация прошла, запустить исходный обработчик
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-// EncryptionKeyCookie - middleware
 func EncryptionKeyCookie(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -237,6 +162,54 @@ func (e *Encrypt) DecryptToken(data string, secretKey string) (string, error) {
 		return "", err
 	}
 	return string(decrypted), nil
+}
+
+func (e *Encrypt) isCookie(r *http.Request) bool {
+	_, err := r.Cookie("access_token")
+	return err != http.ErrNoCookie
+}
+
+func Session(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		en := Encrypt{}
+		//idUser := ""
+		//at, err := r.Cookie("access_token")
+		// если не обнаружена кука в запросе ...
+		if !en.isCookie(r) {
+			ctx := r.Context()
+			//en := Encrypt{}
+			// ...создать подписанный секретным ключом токен,
+			//token, err := en.EncryptToken(secretSecret)
+			//if err != nil {
+			//	fmt.Printf("Encrypt error: %v\n", err)
+			//}
+			// ...установить куку с именем access_token,
+			// а в качестве значения установить зашифрованный,
+			// подписанный токен
+			http.SetCookie(w, &http.Cookie{
+				Name:  "access_token",
+				Path:  "/",
+				Value: "",
+				//Value: token,
+				//Expires: time.Now().Add(time.Nanosecond * time.Duration(sessionLifeNanos)),
+			})
+
+			// декодируем token
+			//idUser, err := en.DecryptToken(token, secretSecret)
+			//if err != nil {
+			//	fmt.Printf(" Decrypt error: %v\n", err)
+			//}
+			//ctx = context.WithValue(ctx, x, idUser)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+			//http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
+			//return
+		}
+		//ctx = context.WithValue(ctx, x, idUser)
+		//Предполагая, что аутентификация прошла, запустить исходный обработчик
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func CheckToken(msg string) bool {

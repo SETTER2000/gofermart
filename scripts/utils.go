@@ -75,6 +75,16 @@ func CheckEnvironFlag(environName string, flagName string) bool {
 	}
 	return true
 }
+func TrimEmpty(s string) (string, error) {
+	sz := len(s)
+	var word string
+	for i := 0; i < sz; i++ {
+		if string(s[i]) != " " {
+			word += string(s[i])
+		}
+	}
+	return word, nil
+}
 
 // Trim удаляет первый и последний символ в строке s
 // t - удаляется символ переданный в аргумент

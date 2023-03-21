@@ -29,18 +29,18 @@ func Run(cfg *config.Config) {
 	// Use case
 	var gofermartUseCase usecase.Gofermart
 	if !scripts.CheckEnvironFlag("DATABASE_URI", cfg.Storage.ConnectDB) {
-		l.Info("DB SQL - is work II ...")
-		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
-		//if cfg.FileStorage == "" {
-		//	l.Warn("In memory storage!!!")
-		//	gofermartUseCase = usecase.New(repo.NewInMemory(cfg))
-		//} else {
-		//	l.Info("File storage - is work...")
-		//	gofermartUseCase = usecase.New(repo.NewInFiles(cfg))
-		//	if err := gofermartUseCase.ReadService(); err != nil {
-		//		l.Error(fmt.Errorf("app - Read - gofermartUseCase.ReadService: %w", err))
-		//	}
-		//}
+		//l.Info("DB SQL - is work II ...")
+		//gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
+		if cfg.FileStorage == "" {
+			l.Warn("In memory storage!!!")
+			gofermartUseCase = usecase.New(repo.NewInMemory(cfg))
+		} else {
+			l.Info("File storage - is work...")
+			gofermartUseCase = usecase.New(repo.NewInFiles(cfg))
+			if err := gofermartUseCase.ReadService(); err != nil {
+				l.Error(fmt.Errorf("app - Read - gofermartUseCase.ReadService: %w", err))
+			}
+		}
 	} else {
 		l.Info("DB SQL - is work...")
 		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))

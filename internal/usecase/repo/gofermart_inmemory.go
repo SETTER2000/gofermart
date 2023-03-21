@@ -37,7 +37,16 @@ func (s *InMemory) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofer
 	}
 	return u, nil
 }
+func (s *InMemory) OrderGetByID(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
+	return nil, nil
+}
 func (s *InMemory) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
+	return nil, nil
+}
+func (s *InMemory) OrderIn(ctx context.Context, sh *entity.Gofermart) error {
+	return nil
+}
+func (s *InMemory) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {
 	return nil, nil
 }
 func (s *InMemory) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {

@@ -88,6 +88,21 @@ func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
 	return nil
 }
 
+func (i *InSQL) OrderIn(ctx context.Context, sh *entity.Gofermart) error {
+	stmt, err := i.w.db.Prepare("INSERT INTO public.order (order_id, user_id) VALUES ($1,$2)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = stmt.Exec(sh.Order, sh.UserID)
+	if err, ok := err.(*pgconn.PgError); ok {
+		if err.Code == pgerrcode.UniqueViolation {
+			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+		}
+		return err
+	}
+	return nil
+}
+
 func (i *InSQL) Put(ctx context.Context, sh *entity.Gofermart) error {
 	return i.Post(ctx, sh)
 }
@@ -126,6 +141,30 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 	return sh, nil
 }
 
+// OrderGetByID поиск по ID ордера
+func (i *InSQL) OrderGetByID(ctx context.Context, g *entity.Gofermart) (*entity.Gofermart, error) {
+	var id, user string
+	q := `SELECT order_id, user_id FROM "order" WHERE order_id=$1`
+	rows, err := i.w.db.Queryx(q, g.Order)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&id, &user)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+	g.Order = id
+	g.UserID = user
+	return g, nil
+}
+
 func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
 	var a entity.Authentication
 	var userID, login, encrypt string
@@ -146,6 +185,36 @@ func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authenticatio
 	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
+	}
+	a.ID = userID
+	a.Login = login
+	a.EncryptPassword = encrypt
+	return &a, nil
+}
+
+func (i *InSQL) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {
+	var a entity.Authentication
+	var userID, login, encrypt string
+
+	q := `SELECT user_id, login, encrypted_passwd FROM "user" WHERE user_id=$1`
+	rows, err := i.w.db.Queryx(q, l)
+	//rows, err := i.w.db.Query("SELECT * FROM user WHERE login=$1", l)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&userID, &login, &encrypt)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if userID == "" {
+		return nil, ErrNotFound
 	}
 	a.ID = userID
 	a.Login = login
@@ -205,6 +274,7 @@ func Connect(cfg *config.Config) (db *sqlx.DB) {
 	db.SetMaxOpenConns(n)
 	schema := `
 -- CREATE EXTENSION "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS public.user
 (
 	user_id UUID NOT NULL DEFAULT uuid_generate_v1(),
@@ -220,6 +290,15 @@ CREATE TABLE IF NOT EXISTS public.gofermart
    user_id VARCHAR(300) NOT NULL,
    del BOOLEAN DEFAULT FALSE
 );
+
+CREATE TABLE IF NOT EXISTS public.order (
+  order_id NUMERIC PRIMARY KEY,
+  user_id uuid,
+  foreign key (user_id) references public."user" (user_id)
+  match simple on update no action on delete no action
+);
+
+
 `
 	db.MustExec(schema)
 	if err != nil {

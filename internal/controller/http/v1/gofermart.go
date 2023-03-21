@@ -12,11 +12,13 @@ import (
 	"github.com/SETTER2000/gofermart/internal/usecase/repo"
 	"github.com/SETTER2000/gofermart/pkg/log/logger"
 	"github.com/SETTER2000/gofermart/scripts"
+	"github.com/SETTER2000/gofermart/scripts/luna"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -226,7 +228,7 @@ func (sr *gofermartRoutes) shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Return JSON empty
-// @Description Redirect to log URL
+// @Description Регистрация пользователя
 // @ID          handleUserCreate
 // @Tags  	    gofermart
 // @Accept      json
@@ -267,7 +269,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 }
 
 // @Summary     Return JSON empty
-// @Description Authentication user
+// @Description Аутентификация пользователя
 // @ID          handleUserLogin
 // @Tags  	    gofermart
 // @Accept      json
@@ -312,8 +314,34 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 	sr.respond(w, r, http.StatusOK, nil)
 }
 
+// IsAuthenticated проверка авторизирован ли пользователь, по сути проверка токена на пригодность
+// TODO возможно здесь нужно реализовать проверку времени жизни токена
+func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Request) {
+	var e encryp.Encrypt
+	at, err := r.Cookie("access_token")
+	if err == http.ErrNoCookie {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	// если кука обнаружена, то расшифровываем токен,
+	// содержащийся в ней, и проверяем подпись
+	dt, err := e.DecryptToken(at.Value, sr.cfg.SecretKey)
+	if err != nil {
+		fmt.Printf("error decrypt cookie: %e", err)
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	//fmt.Printf("User ID расшифрованный из токена:: %s\n", dt)
+	_, err = sr.s.FindByID(r.Context(), dt)
+	if err != nil {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	return
+}
+
 // @Summary     Return JSON empty
-// @Description Authentication user
+// @Description Загрузка номера заказа
 // @ID          handleUserOrders
 // @Tags  	    gofermart
 // @Accept      text
@@ -328,41 +356,54 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 // @Router      /user/orders [post]
 func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
 	// TODO менять
+	sr.IsAuthenticated(w, r)                // проверка аутентификации
+	sr.ContentTypeCheck(w, r, "text/plain") // проверка правильного формата запроса
 	ctx := r.Context()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		sr.respond(w, r, http.StatusInternalServerError, nil)
 		return
 	}
 	data := entity.Gofermart{Config: sr.cfg}
-	data.URL = string(body)
-	//data.URL, _ = scripts.Trim(string(body), "")
-	data.Slug = scripts.UniqueString()
-	//data.UserID = r.Context().Value("access_token").(string)
-	gofermart, err := sr.s.LongLink(ctx, &data)
+	data.Order, _ = scripts.TrimEmpty(string(body))
+	order, err := strconv.Atoi(data.Order)
+	if !luna.Luna(order) { // цветы, цветы
+		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
+		return
+	}
+	data.UserID = ctx.Value("access_token").(string)
+	_, err = sr.s.OrderAdd(ctx, &data)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Gofermart{Config: sr.cfg, URL: data.URL}
-			//data2.URL = data.URL
-			sh, err := sr.s.ShortLink(ctx, &data2)
+			data2 := entity.Gofermart{Config: sr.cfg, Order: data.Order}
+			sh, err := sr.s.OrderFindByID(ctx, &data2)
 			if err != nil {
-				sr.l.Error(err, "http - v2 - shortLink")
-				http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
+				sr.l.Error(err, "http - v1 - handleUserOrders")
+				sr.respond(w, r, http.StatusBadRequest, nil)
 				return
 			}
-			gofermart = sh.Slug
-			w.Header().Set("Content-Type", http.DetectContentType(body))
-			w.WriteHeader(http.StatusConflict)
+
+			if sh.UserID != data.UserID {
+				sr.respond(w, r, http.StatusConflict, nil)
+			}
+			sr.respond(w, r, http.StatusOK, nil)
+			return
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
-	d := scripts.GetHost(sr.cfg.HTTP, gofermart)
+
 	//w.Header().Set("Content-Type", http.DetectContentType(body))
-	//w.WriteHeader(http.StatusCreated)
-	//w.Write([]byte(d))
-	sr.respond(w, r, http.StatusCreated, d)
+	//w.WriteHeader(http.StatusAccepted)
+	//w.Write([]byte("Новый номер заказа принят в обработку!"))
+
+	w.Header().Set("Content-Type", "text/plain")
+	//w.Header().Add("Content-Encoding", "gzip")
+	//w.Header().Set("Location", gofermart)
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte("новый номер заказа принят в обработку"))
+	//sr.respond(w, r, http.StatusAccepted, gofermart)
 }
 
 // batch
@@ -461,6 +502,15 @@ func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 	sr.respond(w, r, http.StatusAccepted, "")
 }
 
+// ContentTypeCheck проверка соответствует ли content-type запроса endpoint
+func (sr *gofermartRoutes) ContentTypeCheck(w http.ResponseWriter, r *http.Request, t string) {
+	ct := r.Header.Get("Content-Type")
+	if ct != t {
+		sr.respond(w, r, http.StatusBadRequest, nil)
+		return
+	}
+	return
+}
 func (sr *gofermartRoutes) delUrls2(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
 	const workersCount = 10

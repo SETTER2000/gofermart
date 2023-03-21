@@ -41,9 +41,7 @@ func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *c
 	handler.Use(middleware.Logger)
 	handler.Use(middleware.Recoverer)
 	handler.Use(render.SetContentType(render.ContentTypePlainText))
-	//handler.Use(encryp.RequireAuthentication)
 	handler.Use(encryp.EncryptionKeyCookie)
-	//handler.Use(encryp.Session)
 	//handler.Use(gzip.CompressGzip)
 	handler.Use(gzip.DeCompressGzip)
 

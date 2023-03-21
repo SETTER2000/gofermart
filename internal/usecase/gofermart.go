@@ -33,6 +33,14 @@ func (uc *GofermartUseCase) FindByLogin(ctx context.Context, s string) (*entity.
 	}
 	return a, nil
 }
+func (uc *GofermartUseCase) FindByID(ctx context.Context, s string) (*entity.Authentication, error) {
+	//auth.Login = ctx.Value(auth.Cookie.AccessTokenName).(string)
+	a, err := uc.repo.GetByID(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
+}
 func (uc *GofermartUseCase) Register(ctx context.Context, auth *entity.Authentication) error {
 	//auth.Login = ctx.Value(auth.Cookie.AccessTokenName).(string)
 	err := uc.repo.Registry(ctx, auth)
@@ -63,10 +71,31 @@ func (uc *GofermartUseCase) LongLink(ctx context.Context, sh *entity.Gofermart) 
 	return sh.Slug, nil
 }
 
+// OrderAdd принимает длинный URL и возвращает короткий (PUT /api)
+func (uc *GofermartUseCase) OrderAdd(ctx context.Context, g *entity.Gofermart) (string, error) {
+	//sh.Slug = scripts.UniqueString()
+	//sh.UserID = ctx.Value("access_token").(string)
+	err := uc.repo.OrderIn(ctx, g)
+	if err != nil {
+		return "", err
+	}
+	return g.Order, nil
+}
+
 // ShortLink принимает короткий URL и возвращает длинный (GET /api/{key})
 func (uc *GofermartUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
 	sh.UserID = ctx.Value("access_token").(string)
 	sh, err := uc.repo.Get(ctx, sh)
+	if err == nil {
+		return sh, nil
+	}
+	return nil, ErrBadRequest
+}
+
+// OrderFindByID поиск заказа по ID
+func (uc *GofermartUseCase) OrderFindByID(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
+	sh.UserID = ctx.Value("access_token").(string)
+	sh, err := uc.repo.OrderGetByID(ctx, sh)
 	if err == nil {
 		return sh, nil
 	}
