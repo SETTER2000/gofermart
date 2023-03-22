@@ -49,7 +49,7 @@ func (s *InMemory) GetByLogin(ctx context.Context, l string) (*entity.Authentica
 func (s *InMemory) OrderIn(ctx context.Context, sh *entity.Order) error {
 	return nil
 }
-func (i *InMemory) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
+func (s *InMemory) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
 	return nil
 }
 func (s *InMemory) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {

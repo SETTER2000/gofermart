@@ -29,8 +29,8 @@ func Run(cfg *config.Config) {
 	// Use case
 	var gofermartUseCase usecase.Gofermart
 	if !scripts.CheckEnvironFlag("DATABASE_URI", cfg.Storage.ConnectDB) {
-		//l.Info("DB SQL - is work II ...")
-		//gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
+		l.Info("DB SQL - is work II ...")
+		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
 		if cfg.FileStorage == "" {
 			l.Warn("In memory storage!!!")
 			gofermartUseCase = usecase.New(repo.NewInMemory(cfg))

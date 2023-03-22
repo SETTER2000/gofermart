@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"log"
 	"os"
+	"strconv"
 )
 
 const (
@@ -93,6 +94,7 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("ORDER-NUM:::%v\n", o.Number)
 	_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
@@ -177,7 +179,7 @@ func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.
 	if err != nil {
 		log.Fatal(err)
 	}
-	o.Number = number
+	o.Number, _ = strconv.Atoi(number)
 	o.UserID = userID
 	o.UploadedAt = uploadedAt
 	o.Status = status
@@ -270,24 +272,24 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
 	var number, userID, uploadedAt, status, accrual string
 	// 2020-12-10T15:15:45+03:00
-	q := `SELECT number, user_id, to_char(uploaded_at::timestamptz, 'YYYY-MM-DD"T"HH24:MI:SSOF:00'), status, accrual FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
+	q := `SELECT number, user_id,  uploaded_at, status, accrual FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
 	rows, err := i.w.db.Queryx(q, u.UserID)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
-	o := entity.Order{}
+	or := entity.OrderResponse{}
 	ol := entity.OrderList{}
 	for rows.Next() {
 		err = rows.Scan(&number, &userID, &uploadedAt, &status, &accrual)
 		if err != nil {
 			return nil, err
 		}
-		o.Number = number
-		o.Status = status
-		o.Accrual = accrual
-		o.UploadedAt = uploadedAt
-		ol = append(ol, o)
+		or.Number = number
+		or.Status = status
+		or.Accrual = accrual
+		or.UploadedAt = uploadedAt
+		ol = append(ol, or)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
@@ -343,7 +345,7 @@ CREATE TABLE IF NOT EXISTS public.gofermart
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'state') THEN
-        CREATE TYPE state AS ENUM ('REGISTERED', 'INVALID','PROCESSING', 'PROCESSED');
+        CREATE TYPE state AS ENUM ('NEW', 'REGISTERED', 'INVALID','PROCESSING', 'PROCESSED');
     END IF;
     --more types here...
 END$$;

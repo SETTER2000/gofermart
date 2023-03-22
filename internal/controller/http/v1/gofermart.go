@@ -364,15 +364,21 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		sr.respond(w, r, http.StatusInternalServerError, nil)
 		return
 	}
+
 	o := entity.Order{Config: sr.cfg}
-	o.Number = strings.TrimSpace(string(body))
-	order, _ := strconv.Atoi(o.Number)
-	if !luna.Luna(order) { // цветы, цветы
+	o.Number, err = strconv.Atoi(string(body))
+	if err != nil {
+		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
+		return
+	}
+	//o.Number = strings.TrimSpace(string(body))
+	//order, _ := strconv.Atoi(o.Number)
+	if !luna.Luna(o.Number) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
 	o.UserID = ctx.Value("access_token").(string)
-	o.Status = "REGISTERED"
+	o.Status = "NEW"
 	strAcc := "500"
 	o.Accrual = strings.TrimSpace(strAcc)
 
@@ -430,10 +436,10 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 	// проверка правильного формата запроса
-	if !sr.ContentTypeCheck(w, r, "text/plain") {
-		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
-		return
-	}
+	//if !sr.ContentTypeCheck(w, r, "text/plain") {
+	//	sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
+	//	return
+	//}
 	o := entity.Order{Config: sr.cfg}
 	wd := entity.Withdraw{}
 	body, err := io.ReadAll(r.Body)
@@ -444,9 +450,9 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	o.Number = strings.TrimSpace(wd.Order)
-	order, _ := strconv.Atoi(o.Number)
-	if !luna.Luna(order) { // цветы, цветы
+	o.Number = wd.Order
+	//order, _ := strconv.Atoi(o.Number)
+	if !luna.Luna(o.Number) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
@@ -454,7 +460,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	o.Status = "REGISTERED"
 	strAcc := "500"
 	o.Accrual = strings.TrimSpace(strAcc)
-
 	err = sr.s.BalanceWithdraw(ctx, &wd)
 	//_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
@@ -477,7 +482,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 			return
 		}
 	}
-
 	sr.respond(w, r, http.StatusOK, "в разработке")
 }
 

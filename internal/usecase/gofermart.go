@@ -72,12 +72,12 @@ func (uc *GofermartUseCase) LongLink(ctx context.Context, sh *entity.Gofermart) 
 }
 
 // OrderAdd добавить ордер
-func (uc *GofermartUseCase) OrderAdd(ctx context.Context, o *entity.Order) (string, error) {
+func (uc *GofermartUseCase) OrderAdd(ctx context.Context, o *entity.Order) (*entity.Order, error) {
 	err := uc.repo.OrderIn(ctx, o)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return o.Number, nil
+	return o, nil
 }
 
 // BalanceWithdraw запрос на списание средств

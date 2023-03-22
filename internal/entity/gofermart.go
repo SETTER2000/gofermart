@@ -23,8 +23,17 @@ type List struct {
 	Slug string `json:"short_url" example:"1674872720465761244B_5"`                 // Строковый идентификатор
 	URL  string `json:"original_url" example:"https://example.com/go/to/home.html"` // URL для сокращения
 }
-type OrderList []Order
+type OrderList []OrderResponse
+
 type Order struct {
+	Number         int    `json:"number,omitempty"`
+	Status         string `json:"status,omitempty"`
+	Accrual        string `json:"accrual,omitempty"`
+	UploadedAt     string `json:"uploaded_at"`
+	UserID         string `json:"user_id,omitempty"`
+	*config.Config `json:"-"`
+}
+type OrderResponse struct {
 	Number         string `json:"number,omitempty"`
 	Status         string `json:"status,omitempty"`
 	Accrual        string `json:"accrual,omitempty"`
@@ -34,8 +43,8 @@ type Order struct {
 }
 
 type Withdraw struct {
-	Order string `json:"order,omitempty"`
-	Sum   string `json:"sum,omitempty"`
+	Order int `json:"order,omitempty"`
+	Sum   int `json:"sum,omitempty"`
 }
 
 type User struct {

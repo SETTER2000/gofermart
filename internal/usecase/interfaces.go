@@ -14,7 +14,7 @@ type (
 		Register(context.Context, *entity.Authentication) error
 		UserFindByLogin(context.Context, string) (*entity.Authentication, error)
 		UserFindByID(context.Context, string) (*entity.Authentication, error)
-		OrderAdd(context.Context, *entity.Order) (string, error)
+		OrderAdd(context.Context, *entity.Order) (*entity.Order, error)
 		BalanceWithdraw(context.Context, *entity.Withdraw) error
 		OrderFindByID(context.Context, *entity.Order) (*entity.Order, error)
 		OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error)

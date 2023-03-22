@@ -23,7 +23,7 @@ type (
 	HTTP struct {
 		// BASE_URL - базовый адрес результирующего сокращённого URL
 		BaseURL string `env:"BASE_URL"`
-		// RUN_ADDRESS - адрес запуска HTTP-сервера
+		// RUN_ADDRESS или флаг -a - адрес и порт запуска сервиса
 		ServerAddress string `env:"RUN_ADDRESS"`
 		// адрес системы расчёта начислений: переменная окружения ОС
 		Accrual string `env:"ACCRUAL_SYSTEM_ADDRESS"`
@@ -57,8 +57,8 @@ func NewConfig() (*Config, error) {
 	}
 
 	// flags
-	flag.StringVar(&cfg.HTTP.ServerAddress, "a", "localhost:8080", "host to listen on")
-	flag.StringVar(&cfg.HTTP.Accrual, "r", "localhost:8081", "host to listen on")
+	flag.StringVar(&cfg.HTTP.ServerAddress, "a", "", "host to listen on")
+	flag.StringVar(&cfg.HTTP.Accrual, "r", "", "host to listen on")
 	flag.StringVar(&cfg.HTTP.BaseURL, "b", "http://localhost:8080", "the base address of the resulting shortened URL")
 	flag.StringVar(&cfg.Storage.FileStorage, "f", "storage.txt", "path to file with abbreviated URLs")
 	flag.StringVar(&cfg.Storage.ConnectDB, "d", "", "dsn connect string urlExample PostgreSQL: postgres://username:password@localhost:5432/database_name")
