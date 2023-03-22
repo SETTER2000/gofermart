@@ -435,12 +435,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
-	// проверка правильного формата запроса
-	//if !sr.ContentTypeCheck(w, r, "text/plain") {
-	//	sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
-	//	return
-	//}
-	o := entity.Order{Config: sr.cfg}
 	wd := entity.Withdraw{}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -450,38 +444,8 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	o.Number = wd.Order
-	//order, _ := strconv.Atoi(o.Number)
-	if !luna.Luna(o.Number) { // цветы, цветы
-		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
-		return
-	}
-	o.UserID = ctx.Value("access_token").(string)
-	o.Status = "REGISTERED"
-	strAcc := "500"
-	o.Accrual = strings.TrimSpace(strAcc)
-	err = sr.s.BalanceWithdraw(ctx, &wd)
-	//_, err = sr.s.OrderAdd(ctx, &o)
-	if err != nil {
-		if errors.Is(err, repo.ErrAlreadyExists) {
-			data2 := entity.Order{Config: sr.cfg, Number: o.Number}
-			o2, err := sr.s.OrderFindByID(ctx, &data2)
-			if err != nil {
-				sr.l.Error(err, "http - v1 - handleUserOrders")
-				sr.respond(w, r, http.StatusBadRequest, nil)
-				return
-			}
 
-			if o2.UserID != o.UserID {
-				sr.respond(w, r, http.StatusConflict, "номер заказа уже был загружен другим пользователем")
-			}
-			sr.respond(w, r, http.StatusOK, nil)
-			return
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-	}
+	err = sr.s.BalanceWithdraw(ctx, &wd)
 	sr.respond(w, r, http.StatusOK, "в разработке")
 }
 
