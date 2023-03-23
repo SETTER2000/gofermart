@@ -100,14 +100,24 @@ func (uc *GofermartUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart)
 	return nil, ErrBadRequest
 }
 
-// OrderFindByID поиск заказа по ID
+// OrderFindByID поиск заказа по номеру заказа
 func (uc *GofermartUseCase) OrderFindByID(ctx context.Context, o *entity.Order) (*entity.OrderResponse, error) {
-	o.UserID = ctx.Value("access_token").(string)
+	//o.UserID = ctx.Value("access_token").(string)
 	or, err := uc.repo.OrderGetByNumber(ctx, o)
 	if err == nil {
 		return or, nil
 	}
 	return nil, ErrBadRequest
+}
+
+// OrderBalanceWithdrawAdd запрос на списание средств
+func (uc *GofermartUseCase) OrderBalanceWithdrawAdd(ctx context.Context, wd *entity.Withdraw) error {
+	wd.UserID = ctx.Value("access_token").(string)
+	err := uc.repo.OrderPostBalanceWithdraw(ctx, wd)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // UserAllLink принимает короткий URL и возвращает длинный (GET /user/urls)

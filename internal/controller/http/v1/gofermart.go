@@ -35,6 +35,7 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 		r.Delete("/urls", sr.delUrls2)
 		r.Get("/urls", sr.urls)
 		r.Get("/orders", sr.handleUserOrdersGet)
+		r.Get("/withdrawals", sr.handleUserWithdrawalsGet)
 		r.Post("/register", sr.handleUserCreate)
 		r.Post("/login", sr.handleUserLogin)
 		r.Post("/orders", sr.handleUserOrders)
@@ -122,7 +123,7 @@ func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
 	data.URL = string(body)
 	//data.URL, _ = scripts.Trim(string(body), "")
 	data.Slug = scripts.UniqueString()
-	//data.UserID = r.Context().Value("access_token").(string)
+	//data.UserID = r.Context().Value("access_tokensr.cfg.Cookie.AccessTokenName).(string)
 	gofermart, err := sr.s.LongLink(ctx, &data)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
@@ -152,7 +153,7 @@ func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
 // GET
 func (sr *gofermartRoutes) urls(w http.ResponseWriter, r *http.Request) {
 	u := entity.User{}
-	userID := r.Context().Value("access_token")
+	userID := r.Context().Value(sr.cfg.Cookie.AccessTokenName)
 	if userID == nil {
 		w.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
 	}
@@ -313,22 +314,26 @@ func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Reques
 
 // IsAuthenticated проверка авторизирован ли пользователь, по сути проверка токена на пригодность
 // TODO возможно здесь нужно реализовать проверку времени жизни токена
-func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Request) bool {
+func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Request) (string, error) {
 	var e encryp.Encrypt
+	ctx := r.Context()
 	at, err := r.Cookie("access_token")
 	if err == http.ErrNoCookie {
-		return false
+		return "", err
 	}
 	// если кука обнаружена, то расшифровываем токен,
 	// содержащийся в ней, и проверяем подпись
 	dt, err := e.DecryptToken(at.Value, sr.cfg.SecretKey)
 	if err != nil {
 		fmt.Printf("error decrypt cookie: %e", err)
-		return false
+		return "", err
 	}
 	//fmt.Printf("User ID расшифрованный из токена:: %s\n", dt)
 	_, err = sr.s.UserFindByID(r.Context(), dt)
-	return err == nil
+	if err != nil {
+		return "", err
+	}
+	return ctx.Value(sr.cfg.Cookie.AccessTokenName).(string), nil
 }
 
 // @Summary     Return JSON empty
@@ -348,7 +353,8 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
 	// TODO менять
 	// проверка аутентификации
-	if !sr.IsAuthenticated(w, r) {
+	userID, err := sr.IsAuthenticated(w, r)
+	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
@@ -376,9 +382,9 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
-	o.UserID = ctx.Value("access_token").(string)
+	o.UserID = userID
 	o.Status = "NEW"
-	o.Accrual = 500.65
+	//o.Accrual = 500.65
 
 	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
@@ -429,10 +435,17 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	// проверка аутентификации
-	if !sr.IsAuthenticated(w, r) {
+	userID, err := sr.IsAuthenticated(w, r)
+	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
+	// проверка правильного формата запроса
+	if !sr.ContentTypeCheck(w, r, "text/plain") {
+		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
+		return
+	}
+	o := entity.Order{}
 	wd := entity.Withdraw{}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -442,12 +455,33 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
-
-	err = sr.s.BalanceWithdraw(ctx, &wd)
-	if err != nil {
-		sr.respond(w, r, http.StatusUnprocessableEntity, "в разработке")
+	o.Number, _ = strconv.Atoi(wd.NumOrder)
+	if !luna.Luna(o.Number) { // цветы, цветы
+		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
+		return
 	}
-	sr.respond(w, r, http.StatusOK, "в разработке")
+	o.UserID = userID
+	or, err := sr.s.OrderFindByID(ctx, &o) // есть ли заказ у пользователя
+	if err != nil || or.Number == "" {
+		sr.respond(w, r, http.StatusUnprocessableEntity, nil)
+		return
+	}
+
+	wd.Order = &o
+	err = sr.s.OrderBalanceWithdrawAdd(ctx, &wd) // списание
+	if err != nil {
+		if errors.Is(err, repo.ErrAlreadyExists) {
+			sr.error(w, r, http.StatusConflict, err)
+			return
+		}
+		sr.error(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	// TODO 402 — на счету недостаточно средств;
+
+	fmt.Printf("handleUserBalanceWithdraw Заказ: %s\n", or.Number)
+	sr.respond(w, r, http.StatusOK, "успешная обработка запроса")
 }
 
 // @Summary     Return JSON empty
@@ -463,13 +497,48 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 // @Router      /user/orders [get]
 func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Request) {
 	// проверка аутентификации
-	if !sr.IsAuthenticated(w, r) {
+	userID, err := sr.IsAuthenticated(w, r)
+	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
 	ctx := r.Context()
 	u := entity.User{}
-	u.UserID = ctx.Value("access_token").(string)
+	u.UserID = userID
+	ol, err := sr.s.OrderList(ctx, &u)
+	if err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
+	}
+	if len(*ol) < 1 {
+		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
+	}
+	sr.respond(w, r, http.StatusOK, ol)
+}
+
+// @Summary     Return JSON
+// @Description Получение информации о выводе средств с накопительного счёта пользователем.
+// Хендлер доступен только авторизованному пользователю. Факты выводов в выдаче должны быть
+// отсортированы по времени вывода от самых старых к самым новым. Формат даты — RFC3339.
+// @ID          handleUserWithdrawalsGet
+// @Tags  	    gofermart
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} response — успешная обработка запроса
+// @Success     204 {object} response — нет данных для ответа
+// @Failure     401 {object} response — пользователь не аутентифицирован
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/orders [get]
+func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	u := entity.User{}
+	// проверка аутентификации
+	userID, err := sr.IsAuthenticated(w, r)
+	if err != nil {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	u.UserID = userID
+
 	ol, err := sr.s.OrderList(ctx, &u)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
@@ -541,7 +610,7 @@ func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u := entity.User{}
-	userID := r.Context().Value("access_token")
+	userID := r.Context().Value(sr.cfg.Cookie.AccessTokenName)
 	if userID == nil {
 		w.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
 	}
@@ -595,7 +664,7 @@ func (sr *gofermartRoutes) delUrls2(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 		u := entity.User{}
-		userID := r.Context().Value("access_token")
+		userID := r.Context().Value(sr.cfg.Cookie.AccessTokenName)
 		if userID == nil {
 			w.Write([]byte(fmt.Sprintf("Not access_token and user_id: %s", userID)))
 		}

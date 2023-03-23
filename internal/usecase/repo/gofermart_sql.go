@@ -104,6 +104,22 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	return nil
 }
 
+func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
+	stmt, err := i.w.db.Prepare("INSERT INTO public.balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("OrderPostBalanceWithdraw списание:::%v\n", wd.Sum)
+	_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
+	if err, ok := err.(*pgconn.PgError); ok {
+		if err.Code == pgerrcode.UniqueViolation {
+			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+		}
+		return err
+	}
+	return nil
+}
+
 // BalanceWriteOff запрос на списание средств
 func (i *InSQL) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
 	// TODO queue 😇
@@ -351,14 +367,28 @@ BEGIN
     END IF;
     --more types here...
 END$$;
-CREATE TABLE IF NOT EXISTS public.order (
-  number NUMERIC PRIMARY KEY,
-  user_id uuid,
-  foreign key (user_id) references public."user" (user_id)
-  match simple on update no action on delete no action,
-  uploaded_at TIMESTAMP(0) WITH TIME ZONE,
-  accrual NUMERIC(8,3),
-  status state
+CREATE TABLE IF NOT EXISTS public.order
+(
+    number      NUMERIC PRIMARY KEY,
+    user_id     uuid,
+    uploaded_at TIMESTAMP(0) WITH TIME ZONE,
+    accrual     NUMERIC(8, 3),
+    status      state,
+    FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
+        MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+CREATE TABLE IF NOT EXISTS public.balance
+(
+    id           SERIAL PRIMARY KEY,
+    number       NUMERIC NOT NULL,
+    user_id      uuid NOT NULL,
+    sum          NUMERIC(8, 3) NOT NULL CHECK (sum > 0),
+    processed_at TIMESTAMP(0) WITH TIME ZONE,
+    FOREIGN KEY (number) REFERENCES public."order" (number)
+        MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
+    FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
+        MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
+--     PRIMARY KEY(number, user_id, sum)
 );
 `
 	db.MustExec(schema)

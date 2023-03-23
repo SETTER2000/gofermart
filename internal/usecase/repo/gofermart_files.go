@@ -120,6 +120,10 @@ func (i *InFiles) OrderIn(ctx context.Context, sh *entity.Order) error {
 func (i *InFiles) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
 	return nil
 }
+
+func (i *InFiles) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
+	return nil
+}
 func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	for _, short := range i.m[sh.UserID] {
 		if short.Slug == sh.Slug {

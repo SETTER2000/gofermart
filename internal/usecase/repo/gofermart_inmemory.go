@@ -66,6 +66,9 @@ func (s *InMemory) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	}
 	return sh, nil
 }
+func (s *InMemory) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
+	return nil
+}
 
 // search by slug
 func (s *InMemory) searchBySlug(sh *entity.Gofermart) (*entity.Gofermart, error) {

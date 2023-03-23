@@ -43,8 +43,10 @@ type OrderResponse struct {
 }
 
 type Withdraw struct {
-	Order int `json:"order,omitempty"`
-	Sum   int `json:"sum,omitempty"`
+	NumOrder    string `json:"order"`
+	Sum         int    `json:"sum"`
+	ProcessedAt string `json:"processed_at"`
+	*Order      `json:"-"`
 }
 
 type User struct {
