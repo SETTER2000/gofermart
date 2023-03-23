@@ -101,11 +101,11 @@ func (uc *GofermartUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart)
 }
 
 // OrderFindByID поиск заказа по ID
-func (uc *GofermartUseCase) OrderFindByID(ctx context.Context, o *entity.Order) (*entity.Order, error) {
+func (uc *GofermartUseCase) OrderFindByID(ctx context.Context, o *entity.Order) (*entity.OrderResponse, error) {
 	o.UserID = ctx.Value("access_token").(string)
-	o2, err := uc.repo.OrderGetByNumber(ctx, o)
+	or, err := uc.repo.OrderGetByNumber(ctx, o)
 	if err == nil {
-		return o2, nil
+		return or, nil
 	}
 	return nil, ErrBadRequest
 }

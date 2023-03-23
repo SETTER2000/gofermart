@@ -16,7 +16,7 @@ type (
 		UserFindByID(context.Context, string) (*entity.Authentication, error)
 		OrderAdd(context.Context, *entity.Order) (*entity.Order, error)
 		BalanceWithdraw(context.Context, *entity.Withdraw) error
-		OrderFindByID(context.Context, *entity.Order) (*entity.Order, error)
+		OrderFindByID(context.Context, *entity.Order) (*entity.OrderResponse, error)
 		OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error)
 		Shorten(context.Context, *entity.Gofermart) (string, error)
 		LongLink(context.Context, *entity.Gofermart) (string, error)
@@ -32,7 +32,7 @@ type (
 		Registry(context.Context, *entity.Authentication) error
 		GetByLogin(context.Context, string) (*entity.Authentication, error)
 		GetByID(context.Context, string) (*entity.Authentication, error)
-		OrderGetByNumber(context.Context, *entity.Order) (*entity.Order, error)
+		OrderGetByNumber(context.Context, *entity.Order) (*entity.OrderResponse, error)
 		OrderIn(context.Context, *entity.Order) error
 		BalanceWriteOff(context.Context, *entity.Withdraw) error
 		OrderGetAll(context.Context, *entity.User) (*entity.OrderList, error)

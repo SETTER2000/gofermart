@@ -13,7 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"log"
 	"os"
-	"strconv"
 )
 
 const (
@@ -94,7 +93,7 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("ORDER-NUM:::%v\n", o.Number)
+	fmt.Printf("ORDER-NUM OrderIn:::%v\n", o.Number)
 	_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
@@ -161,9 +160,10 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 }
 
 // OrderGetByNumber поиск по ID ордера
-func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.Order, error) {
-	var number, userID, uploadedAt, status, accrual string
-	q := `SELECT number, user_id, uploaded_at, status, accrual FROM "order" WHERE number=$1`
+func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.OrderResponse, error) {
+	var number, userID, uploadedAt, status string
+	var accrual float32
+	q := `SELECT number, user_id, uploaded_at, status, Round(accrual) FROM "order" WHERE number=$1`
 	rows, err := i.w.db.Queryx(q, o.Number)
 	if err != nil {
 		log.Fatal(err)
@@ -179,12 +179,13 @@ func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.
 	if err != nil {
 		log.Fatal(err)
 	}
-	o.Number, _ = strconv.Atoi(number)
-	o.UserID = userID
-	o.UploadedAt = uploadedAt
-	o.Status = status
-	o.Accrual = accrual
-	return o, nil
+	or := entity.OrderResponse{}
+	or.Number = number
+	or.UserID = userID
+	or.UploadedAt = uploadedAt
+	or.Status = status
+	or.Accrual = accrual
+	return &or, nil
 }
 
 func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
@@ -270,9 +271,10 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 }
 
 func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
-	var number, userID, uploadedAt, status, accrual string
+	var number, userID, uploadedAt, status string
+	var accrual float32
 	// 2020-12-10T15:15:45+03:00
-	q := `SELECT number, user_id,  uploaded_at, status, accrual FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
+	q := `SELECT number, user_id,  uploaded_at, status, Round(accrual) FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
 	rows, err := i.w.db.Queryx(q, u.UserID)
 	if err != nil {
 		log.Fatal(err)
@@ -355,7 +357,7 @@ CREATE TABLE IF NOT EXISTS public.order (
   foreign key (user_id) references public."user" (user_id)
   match simple on update no action on delete no action,
   uploaded_at TIMESTAMP(0) WITH TIME ZONE,
-  accrual NUMERIC,
+  accrual NUMERIC(8,3),
   status state
 );
 `

@@ -37,7 +37,7 @@ func (s *InMemory) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofer
 	}
 	return u, nil
 }
-func (s *InMemory) OrderGetByNumber(ctx context.Context, sh *entity.Order) (*entity.Order, error) {
+func (s *InMemory) OrderGetByNumber(ctx context.Context, sh *entity.Order) (*entity.OrderResponse, error) {
 	return nil, nil
 }
 func (s *InMemory) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {

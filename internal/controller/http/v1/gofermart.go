@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -379,21 +378,20 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	}
 	o.UserID = ctx.Value("access_token").(string)
 	o.Status = "NEW"
-	strAcc := "500"
-	o.Accrual = strings.TrimSpace(strAcc)
+	o.Accrual = 500.65
 
 	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
 			data2 := entity.Order{Config: sr.cfg, Number: o.Number}
-			o2, err := sr.s.OrderFindByID(ctx, &data2)
+			or, err := sr.s.OrderFindByID(ctx, &data2)
 			if err != nil {
 				sr.l.Error(err, "http - v1 - handleUserOrders")
 				sr.respond(w, r, http.StatusBadRequest, nil)
 				return
 			}
 
-			if o2.UserID != o.UserID {
+			if or.UserID != o.UserID {
 				sr.respond(w, r, http.StatusConflict, "номер заказа уже был загружен другим пользователем")
 			}
 			sr.respond(w, r, http.StatusOK, nil)
@@ -446,6 +444,9 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	}
 
 	err = sr.s.BalanceWithdraw(ctx, &wd)
+	if err != nil {
+		sr.respond(w, r, http.StatusUnprocessableEntity, "в разработке")
+	}
 	sr.respond(w, r, http.StatusOK, "в разработке")
 }
 

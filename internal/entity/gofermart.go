@@ -26,19 +26,19 @@ type List struct {
 type OrderList []OrderResponse
 
 type Order struct {
-	Number         int    `json:"number,omitempty"`
-	Status         string `json:"status,omitempty"`
-	Accrual        string `json:"accrual,omitempty"`
-	UploadedAt     string `json:"uploaded_at"`
-	UserID         string `json:"user_id,omitempty"`
+	Number         int     `json:"number,omitempty"`
+	Status         string  `json:"status,omitempty"`
+	Accrual        float32 `json:"accrual,omitempty"`
+	UploadedAt     string  `json:"uploaded_at"`
+	UserID         string  `json:"user_id,omitempty"`
 	*config.Config `json:"-"`
 }
 type OrderResponse struct {
-	Number         string `json:"number,omitempty"`
-	Status         string `json:"status,omitempty"`
-	Accrual        string `json:"accrual,omitempty"`
-	UploadedAt     string `json:"uploaded_at"`
-	UserID         string `json:"user_id,omitempty"`
+	Number         string  `json:"number,omitempty"`
+	Status         string  `json:"status,omitempty"`
+	Accrual        float32 `json:"accrual,omitempty"`
+	UploadedAt     string  `json:"uploaded_at"`
+	UserID         string  `json:"user_id,omitempty"`
 	*config.Config `json:"-"`
 }
 

@@ -102,7 +102,7 @@ func (i *InFiles) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Goferm
 	return i.searchBySlug(sh)
 }
 
-func (i *InFiles) OrderGetByNumber(ctx context.Context, sh *entity.Order) (*entity.Order, error) {
+func (i *InFiles) OrderGetByNumber(ctx context.Context, sh *entity.Order) (*entity.OrderResponse, error) {
 	return nil, nil
 }
 func (i *InFiles) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
