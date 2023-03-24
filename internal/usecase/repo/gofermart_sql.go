@@ -113,7 +113,8 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
-			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+			NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+			return nil
 		}
 		return err
 	}
@@ -308,6 +309,34 @@ func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderL
 		or.Accrual = accrual
 		or.UploadedAt = uploadedAt
 		ol = append(ol, or)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return &ol, nil
+}
+
+func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, error) {
+	var number, userID, processedAt string
+	var sum float32
+	// 2020-12-10T15:15:45+03:00
+	q := `SELECT number, user_id, sum, processed_at FROM "balance" WHERE user_id=$1 ORDER BY processed_at`
+	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	wd := entity.WithdrawResponse{}
+	ol := entity.WithdrawalsList{}
+	for rows.Next() {
+		err = rows.Scan(&number, &userID, &sum, &processedAt)
+		if err != nil {
+			return nil, err
+		}
+		wd.NumOrder = number
+		wd.Sum = sum
+		wd.ProcessedAt = processedAt
+		ol = append(ol, wd)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err

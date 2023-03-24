@@ -42,13 +42,21 @@ type OrderResponse struct {
 	*config.Config `json:"-"`
 }
 
+type WithdrawalsList []WithdrawResponse
+
 type Withdraw struct {
-	NumOrder    string `json:"order"`
-	Sum         int    `json:"sum"`
-	ProcessedAt string `json:"processed_at"`
+	NumOrder    string  `json:"order"`
+	Sum         float32 `json:"sum"`
+	ProcessedAt string  `json:"processed_at"`
 	*Order      `json:"-"`
 }
 
+type WithdrawResponse struct {
+	NumOrder    string  `json:"order"`
+	Sum         float32 `json:"sum"`
+	ProcessedAt string  `json:"processed_at"`
+	*Order      `json:"-"`
+}
 type User struct {
 	UserID  string `json:"user_id" example:"1674872720465761244B_5"`
 	Urls    []List

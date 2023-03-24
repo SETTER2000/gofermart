@@ -138,6 +138,15 @@ func (uc *GofermartUseCase) OrderList(ctx context.Context, u *entity.User) (*ent
 	return nil, ErrBadRequest
 }
 
+// FindWithdrawalsList получение информации о выводе средств
+func (uc *GofermartUseCase) FindWithdrawalsList(ctx context.Context) (*entity.WithdrawalsList, error) {
+	ol, err := uc.repo.BalanceGetAll(ctx)
+	if err == nil {
+		return ol, nil
+	}
+	return nil, ErrBadRequest
+}
+
 // UserDelLink принимает короткий URL и возвращает длинный (DELETE /api/user/urls)
 func (uc *GofermartUseCase) UserDelLink(ctx context.Context, u *entity.User) error {
 	err := uc.repo.Delete(ctx, u)

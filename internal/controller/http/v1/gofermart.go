@@ -17,8 +17,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -35,6 +37,7 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 		r.Delete("/urls", sr.delUrls2)
 		r.Get("/urls", sr.urls)
 		r.Get("/orders", sr.handleUserOrdersGet)
+		//r.Get("/balance", sr.handleUserBalanceGet)
 		r.Get("/withdrawals", sr.handleUserWithdrawalsGet)
 		r.Post("/register", sr.handleUserCreate)
 		r.Post("/login", sr.handleUserLogin)
@@ -113,6 +116,7 @@ func (sr *gofermartRoutes) connect(w http.ResponseWriter, r *http.Request) {
 // @Router      / [post]
 func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		//http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -193,6 +197,7 @@ func (sr *gofermartRoutes) shorten(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := entity.Gofermart{Config: sr.cfg}
 	resp := entity.GofermartResponse{}
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -249,6 +254,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 	// механизм cookies или HTTP-заголовок Authorization.
 	ctx := r.Context()
 	a := &entity.Authentication{Config: sr.cfg}
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
@@ -283,6 +289,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 // @Router      /user/login [post]
 func (sr *gofermartRoutes) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 	a := &entity.Authentication{Config: sr.cfg}
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
@@ -371,7 +378,8 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	}
 
 	o := entity.Order{Config: sr.cfg}
-	o.Number, err = strconv.Atoi(string(body))
+	order := string(body)
+	o.Number, err = strconv.Atoi(order)
 	if err != nil {
 		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
 		return
@@ -385,6 +393,11 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	o.UserID = userID
 	o.Status = "NEW"
 	//o.Accrual = 500.65
+	// link
+	d := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
+	fmt.Printf("ACCRUAL_SYSTEM_ADDRESS:: %v", d)
+	link := "http://localhost:34415/" + order
+	sr.accrualClient(link)
 
 	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
@@ -419,6 +432,90 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	w.Write([]byte("новый номер заказа принят в обработку"))
 	//sr.respond(w, r, http.StatusAccepted, gofermart)
 }
+func (sr *gofermartRoutes) accrualClient(link string) error {
+	link = strings.TrimSpace(link)
+	if link == "" {
+		return fmt.Errorf("error empty arg link")
+	}
+	// конструируем контекст с Timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	// функция cancel() позволяет при необходимости остановить операции
+	defer cancel()
+	// собираем запрос с контекстом
+	req, _ := http.NewRequestWithContext(ctx, "GET", link, nil)
+	// конструируем клиент
+	client := &http.Client{}
+	//--1
+
+	transport := &http.Transport{}
+	transport.MaxIdleConns = 20
+	client.Transport = transport
+	client.Timeout = time.Second * 1
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 2 {
+			return errors.New("остановлено после двух Redirect")
+		}
+		return nil
+	}
+	cookie := &http.Cookie{
+		Name:   sr.cfg.Cookie.AccessTokenName,
+		Value:  "some_token",
+		MaxAge: 300,
+	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		// Если вы не пользуетесь клиентом или хотите
+		// исследовать куки из http.Response, полученные от сервера,
+		// можете воспользоваться методом Response.Cookies()
+		client.Jar = jar // Client.Jar — это хранилище cookie клиента
+	}
+
+	// куки можно устанавливать клиенту для всех запросов по определённому URL
+	//client.Jar.SetCookies(url, []*http.Cookie{cookie})
+	// а можно добавлять к конкретному запросу
+	req.AddCookie(cookie)
+
+	//request, err := http.NewRequest(http.MethodGet, link, nil)
+	//if err != nil {
+	//	return fmt.Errorf("error request to service accrual: %e", err)
+	//}
+	//request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	//request.Header.Add("Accept", "application/json")
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//resp, err := client.Get(link)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	// отправляем запрос
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// печатаем код ответа
+	fmt.Println("Статус-код ", resp.Status)
+	defer resp.Body.Close()
+	// читаем поток из тела ответа
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	// и печатаем его
+	fmt.Println(string(body))
+
+	//defer resp.Body.Close()
+	//payload, err := io.Copy(io.Discard, resp.Body)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	return nil
+}
 
 // @Summary     Return JSON
 // @Description Запрос на списание средств
@@ -441,12 +538,13 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 	// проверка правильного формата запроса
-	if !sr.ContentTypeCheck(w, r, "text/plain") {
+	if !sr.ContentTypeCheck(w, r, "application/json") {
 		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
 		return
 	}
 	o := entity.Order{}
 	wd := entity.Withdraw{}
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
@@ -527,7 +625,7 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 // @Success     204 {object} response — нет данных для ответа
 // @Failure     401 {object} response — пользователь не аутентифицирован
 // @Failure     500 {object} response — внутренняя ошибка сервера
-// @Router      /user/orders [get]
+// @Router      /api/user/withdrawals [get]
 func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := entity.User{}
@@ -539,7 +637,7 @@ func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *ht
 	}
 	u.UserID = userID
 
-	ol, err := sr.s.OrderList(ctx, &u)
+	ol, err := sr.s.FindWithdrawalsList(ctx)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
 	}
@@ -553,6 +651,7 @@ func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *ht
 func (sr *gofermartRoutes) batch(w http.ResponseWriter, r *http.Request) {
 	data := entity.Gofermart{Config: sr.cfg}
 	CorrelationOrigin := entity.CorrelationOrigin{}
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
@@ -600,6 +699,7 @@ func (sr *gofermartRoutes) batch(w http.ResponseWriter, r *http.Request) {
 // образом оповещать пользователя об успешности или неуспешности не нужно.
 func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
