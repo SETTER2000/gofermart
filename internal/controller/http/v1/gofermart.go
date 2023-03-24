@@ -628,14 +628,11 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 // @Router      /api/user/withdrawals [get]
 func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	u := entity.User{}
-	// проверка аутентификации
-	userID, err := sr.IsAuthenticated(w, r)
+	_, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
-	u.UserID = userID
 
 	ol, err := sr.s.FindWithdrawalsList(ctx)
 	if err != nil {
