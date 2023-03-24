@@ -43,6 +43,9 @@ func Run(cfg *config.Config) {
 		}
 	} else {
 		l.Info("DB SQL - is work...")
+		fmt.Printf("CONNECT::\n ACCRUAL_SYSTEM_ADDRESS: %s\n RUN_ADDRESS: %s\n DATABASE_URI: %s\n", os.Getenv("ACCRUAL_SYSTEM_ADDRESS"),
+			os.Getenv("RUN_ADDRESS"),
+			os.Getenv("DATABASE_URI"))
 		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
 	}
 

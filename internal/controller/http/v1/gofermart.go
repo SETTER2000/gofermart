@@ -17,7 +17,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"strconv"
 	"strings"
@@ -395,8 +394,7 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	//o.Accrual = 500.65
 	// link
 	d := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
-	fmt.Printf("ACCRUAL_SYSTEM_ADDRESS:: %v", d)
-	link := "http://localhost:34415/" + order
+	link := "http://" + d + "/" + order
 	sr.accrualClient(link)
 
 	_, err = sr.s.OrderAdd(ctx, &o)
@@ -445,37 +443,57 @@ func (sr *gofermartRoutes) accrualClient(link string) error {
 	req, _ := http.NewRequestWithContext(ctx, "GET", link, nil)
 	// конструируем клиент
 	client := &http.Client{}
-	//--1
 
-	transport := &http.Transport{}
-	transport.MaxIdleConns = 20
-	client.Transport = transport
-	client.Timeout = time.Second * 1
-	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 2 {
-			return errors.New("остановлено после двух Redirect")
-		}
-		return nil
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Ошибка подключения к клиенту Accrual:: ", err)
+		os.Exit(1)
 	}
-	cookie := &http.Cookie{
-		Name:   sr.cfg.Cookie.AccessTokenName,
-		Value:  "some_token",
-		MaxAge: 300,
-	}
-	jar, err := cookiejar.New(nil)
+
+	fmt.Printf("Staus CODE:: %d\n CONNECT URL ACCRUAL:: %s\n", resp.StatusCode, link)
+	// печатаем код ответа
+	fmt.Println("Статус-код ", resp.Status)
+	defer resp.Body.Close()
+	// читаем поток из тела ответа
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
-	} else {
-		// Если вы не пользуетесь клиентом или хотите
-		// исследовать куки из http.Response, полученные от сервера,
-		// можете воспользоваться методом Response.Cookies()
-		client.Jar = jar // Client.Jar — это хранилище cookie клиента
+		os.Exit(1)
 	}
+	// и печатаем его
+	fmt.Println(string(body))
 
-	// куки можно устанавливать клиенту для всех запросов по определённому URL
-	//client.Jar.SetCookies(url, []*http.Cookie{cookie})
-	// а можно добавлять к конкретному запросу
-	req.AddCookie(cookie)
+	//--1
+	//
+	//transport := &http.Transport{}
+	//transport.MaxIdleConns = 20
+	//client.Transport = transport
+	////client.Timeout = time.Second * 1
+	//client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+	//	if len(via) >= 2 {
+	//		return errors.New("остановлено после двух Redirect")
+	//	}
+	//	return nil
+	//}
+	//cookie := &http.Cookie{
+	//	Name:   sr.cfg.Cookie.AccessTokenName,
+	//	Value:  "some_token",
+	//	MaxAge: 300,
+	//}
+	//jar, err := cookiejar.New(nil)
+	//if err != nil {
+	//	fmt.Println(err)
+	//} else {
+	//	// Если вы не пользуетесь клиентом или хотите
+	//	// исследовать куки из http.Response, полученные от сервера,
+	//	// можете воспользоваться методом Response.Cookies()
+	//	client.Jar = jar // Client.Jar — это хранилище cookie клиента
+	//}
+	//
+	//// куки можно устанавливать клиенту для всех запросов по определённому URL
+	////client.Jar.SetCookies(url, []*http.Cookie{cookie})
+	//// а можно добавлять к конкретному запросу
+	//req.AddCookie(cookie)
 
 	//request, err := http.NewRequest(http.MethodGet, link, nil)
 	//if err != nil {
@@ -491,23 +509,6 @@ func (sr *gofermartRoutes) accrualClient(link string) error {
 	//	fmt.Println(err)
 	//}
 	// отправляем запрос
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	// печатаем код ответа
-	fmt.Println("Статус-код ", resp.Status)
-	defer resp.Body.Close()
-	// читаем поток из тела ответа
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	// и печатаем его
-	fmt.Println(string(body))
 
 	//defer resp.Body.Close()
 	//payload, err := io.Copy(io.Discard, resp.Body)

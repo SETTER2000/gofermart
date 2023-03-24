@@ -58,7 +58,7 @@ func NewConfig() (*Config, error) {
 
 	// flags
 	flag.StringVar(&cfg.HTTP.ServerAddress, "a", "localhost:8080", "host to listen on")
-	flag.StringVar(&cfg.HTTP.Accrual, "r", "localhost:34415", "host to listen on")
+	flag.StringVar(&cfg.HTTP.Accrual, "r", "", "host to listen on")
 	flag.StringVar(&cfg.HTTP.BaseURL, "b", "http://localhost:8080", "the base address of the resulting shortened URL")
 	flag.StringVar(&cfg.Storage.FileStorage, "f", "storage.txt", "path to file with abbreviated URLs")
 	flag.StringVar(&cfg.Storage.ConnectDB, "d", "", "dsn connect string urlExample PostgreSQL: postgres://username:password@localhost:5432/database_name")
