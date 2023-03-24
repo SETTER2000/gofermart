@@ -43,13 +43,13 @@ func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *c
 	//handler.Use(gzip.CompressGzip)
 	handler.Use(gzip.DeCompressGzip)
 
-	sr := &gofermartRoutes{s, l, cfg}
-
-	handler.Route("/", func(handler chi.Router) {
-		handler.Post("/", sr.longLink)
-		handler.Get("/{key}", sr.shortLink)
-		handler.Get("/ping", sr.connect)
-	})
+	//sr := &gofermartRoutes{s, l, cfg}
+	//
+	//handler.Route("/", func(handler chi.Router) {
+	//	handler.Post("/", sr.longLink)
+	//	handler.Get("/{key}", sr.shortLink)
+	//	handler.Get("/ping", sr.connect)
+	//})
 
 	// Routers
 	h := handler.Route("/api", func(r chi.Router) {

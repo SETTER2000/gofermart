@@ -51,6 +51,12 @@ type Withdraw struct {
 	*Order      `json:"-"`
 }
 
+type LoyaltyPoints struct {
+	Order   int    `json:"order,omitempty"`
+	Status  string `json:"status,omitempty"`
+	Accrual string `json:"accrual,omitempty"`
+}
+
 type WithdrawResponse struct {
 	NumOrder    string  `json:"order"`
 	Sum         float32 `json:"sum"`

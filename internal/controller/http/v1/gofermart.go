@@ -393,9 +393,8 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	o.Status = "NEW"
 	//o.Accrual = 500.65
 	// link
-	d := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
-	link := "http://" + d + "/" + order
-	sr.accrualClient(link)
+
+	sr.accrualClient(order)
 
 	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
@@ -430,11 +429,16 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	w.Write([]byte("новый номер заказа принят в обработку"))
 	//sr.respond(w, r, http.StatusAccepted, gofermart)
 }
-func (sr *gofermartRoutes) accrualClient(link string) error {
-	link = strings.TrimSpace(link)
-	if link == "" {
+func (sr *gofermartRoutes) accrualClient(order string) error {
+	order = strings.TrimSpace(order)
+	if order == "" {
 		return fmt.Errorf("error empty arg link")
 	}
+	acc := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
+	if len(acc) < 1 {
+		acc = sr.cfg.HTTP.Accrual
+	}
+	link := "http://" + acc + "/api/orders/" + order
 	// конструируем контекст с Timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	// функция cancel() позволяет при необходимости остановить операции
@@ -451,8 +455,6 @@ func (sr *gofermartRoutes) accrualClient(link string) error {
 	}
 
 	fmt.Printf("Staus CODE:: %d\n CONNECT URL ACCRUAL:: %s\n", resp.StatusCode, link)
-	// печатаем код ответа
-	fmt.Println("Статус-код ", resp.Status)
 	defer resp.Body.Close()
 	// читаем поток из тела ответа
 	body, err := io.ReadAll(resp.Body)
@@ -460,8 +462,10 @@ func (sr *gofermartRoutes) accrualClient(link string) error {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	lp := entity.LoyaltyPoints{}
+	json.Unmarshal(body, &lp)
 	// и печатаем его
-	fmt.Println(string(body))
+	fmt.Printf("LoyaltyPoints::%v\n", lp)
 
 	//--1
 	//
