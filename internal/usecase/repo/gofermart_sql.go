@@ -123,8 +123,8 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	//}
 	//
 	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
-	rows, err := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
-	err = rows.Err()
+	rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
+	err := rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
