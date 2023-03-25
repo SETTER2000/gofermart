@@ -455,7 +455,7 @@ func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request,
 		//os.Exit(1)
 	}
 
-	fmt.Printf("Status CODE:: %d\n CONNECT URL ACCRUAL:: %s\n", resp.StatusCode, link)
+	fmt.Printf("CONNECT ACCRUAL status: %d  %s\n", resp.StatusCode, link)
 	lp := entity.LoyaltyStatus{}
 	if resp.StatusCode == 204 {
 		lp.Status = "NEW"

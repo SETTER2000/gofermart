@@ -479,15 +479,12 @@ func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 
 func Connect(cfg *config.Config) (db *sqlx.DB) {
 	db, _ = sqlx.Open(driverName, cfg.ConnectDB)
-
 	err := db.Ping()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
 		os.Exit(1)
 	}
-
 	n := 100
-
 	db.SetMaxIdleConns(n)
 	db.SetMaxOpenConns(n)
 	schema := `
@@ -499,7 +496,6 @@ CREATE TABLE IF NOT EXISTS public.user
     login VARCHAR(100) NOT NULL UNIQUE,
     encrypted_passwd VARCHAR(100) NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS public.gofermart
 (
    slug    VARCHAR(300) NOT NULL,
@@ -507,8 +503,6 @@ CREATE TABLE IF NOT EXISTS public.gofermart
    user_id VARCHAR(300) NOT NULL,
    del BOOLEAN DEFAULT FALSE
 );
-
--- CREATE TYPE state AS ENUM ('REGISTERED', 'INVALID','PROCESSING', 'PROCESSED') ;
 --create types
 DO $$
 BEGIN
@@ -522,7 +516,7 @@ CREATE TABLE IF NOT EXISTS public.order
     number      NUMERIC PRIMARY KEY,
     user_id     uuid,
     uploaded_at TIMESTAMP(0) WITH TIME ZONE,
-    accrual     NUMERIC(8, 1) DEFAULT 0 CHECK ( accrual >= 0 ),
+    accrual     NUMERIC(8, 2) DEFAULT 0 CHECK ( accrual >= 0 ),
     status      state,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
@@ -532,7 +526,7 @@ CREATE TABLE IF NOT EXISTS public.balance
     id           SERIAL PRIMARY KEY,
     number       NUMERIC NOT NULL,
     user_id      uuid NOT NULL,
-    sum          NUMERIC(8, 1) NOT NULL CHECK (sum > 0),
+    sum          NUMERIC(8, 2) NOT NULL CHECK (sum > 0),
     processed_at TIMESTAMP(0) WITH TIME ZONE,
     FOREIGN KEY (number) REFERENCES public."order" (number)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
