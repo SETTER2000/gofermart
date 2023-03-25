@@ -51,10 +51,10 @@ type Withdraw struct {
 	*Order      `json:"-"`
 }
 
-type LoyaltyPoints struct {
-	Order   int    `json:"order,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Accrual string `json:"accrual,omitempty"`
+type LoyaltyStatus struct {
+	Order   string  `json:"order,omitempty"`
+	Status  string  `json:"status,omitempty"`
+	Accrual float32 `json:"accrual,omitempty"`
 }
 
 type WithdrawResponse struct {
@@ -69,6 +69,12 @@ type User struct {
 	DelLink []string
 }
 
+type Balance struct {
+	Current  float64 `json:"current"`
+	Withdraw float64 `json:"withdraw"`
+}
+
+// GofermartResponse  --
 type GofermartResponse struct {
 	URL string `json:"result"` // URL для сокращения
 }

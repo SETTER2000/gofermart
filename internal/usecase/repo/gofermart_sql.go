@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
@@ -238,7 +239,6 @@ func (i *InSQL) GetByID(ctx context.Context, l string) (*entity.Authentication, 
 
 	q := `SELECT user_id, login, encrypted_passwd FROM "user" WHERE user_id=$1`
 	rows, err := i.w.db.Queryx(q, l)
-	//rows, err := i.w.db.Query("SELECT * FROM user WHERE login=$1", l)
 	if err != nil {
 		return nil, err
 	}
@@ -316,6 +316,32 @@ func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderL
 	return &ol, nil
 }
 
+// Balance получение текущего баланса пользователя
+func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
+	var current, withdrawn sql.NullFloat64
+	// 2020-12-10T15:15:45+03:00
+	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
+	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	b := entity.Balance{}
+	for rows.Next() {
+		err = rows.Scan(&current, &withdrawn)
+		if err != nil {
+			return nil, err
+		}
+
+		b.Current = current.Float64
+		b.Withdraw = withdrawn.Float64
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
 func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, error) {
 	var number, userID, processedAt string
 	var sum float32
@@ -401,7 +427,7 @@ CREATE TABLE IF NOT EXISTS public.order
     number      NUMERIC PRIMARY KEY,
     user_id     uuid,
     uploaded_at TIMESTAMP(0) WITH TIME ZONE,
-    accrual     NUMERIC(8, 3),
+    accrual     NUMERIC(8, 1) DEFAULT 0,
     status      state,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
@@ -411,7 +437,7 @@ CREATE TABLE IF NOT EXISTS public.balance
     id           SERIAL PRIMARY KEY,
     number       NUMERIC NOT NULL,
     user_id      uuid NOT NULL,
-    sum          NUMERIC(8, 3) NOT NULL CHECK (sum > 0),
+    sum          NUMERIC(8, 1) NOT NULL CHECK (sum > 0),
     processed_at TIMESTAMP(0) WITH TIME ZONE,
     FOREIGN KEY (number) REFERENCES public."order" (number)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,

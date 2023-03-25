@@ -90,12 +90,11 @@ func (uc *GofermartUseCase) BalanceWithdraw(ctx context.Context, wd *entity.With
 	return nil
 }
 
-// ShortLink принимает короткий URL и возвращает длинный (GET /api/{key})
-func (uc *GofermartUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
-	sh.UserID = ctx.Value("access_token").(string)
-	sh, err := uc.repo.Get(ctx, sh)
+// OrderList возвращает все заказы пользователя
+func (uc *GofermartUseCase) OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	ol, err := uc.repo.OrderGetAll(ctx, u)
 	if err == nil {
-		return sh, nil
+		return ol, nil
 	}
 	return nil, ErrBadRequest
 }
@@ -120,6 +119,16 @@ func (uc *GofermartUseCase) OrderBalanceWithdrawAdd(ctx context.Context, wd *ent
 	return nil
 }
 
+// ShortLink принимает короткий URL и возвращает длинный (GET /api/{key})
+func (uc *GofermartUseCase) ShortLink(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermart, error) {
+	sh.UserID = ctx.Value("access_token").(string)
+	sh, err := uc.repo.Get(ctx, sh)
+	if err == nil {
+		return sh, nil
+	}
+	return nil, ErrBadRequest
+}
+
 // UserAllLink принимает короткий URL и возвращает длинный (GET /user/urls)
 func (uc *GofermartUseCase) UserAllLink(ctx context.Context, u *entity.User) (*entity.User, error) {
 	u, err := uc.repo.GetAll(ctx, u)
@@ -129,20 +138,20 @@ func (uc *GofermartUseCase) UserAllLink(ctx context.Context, u *entity.User) (*e
 	return nil, ErrBadRequest
 }
 
-// OrderList возвращает все заказы пользователя
-func (uc *GofermartUseCase) OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
-	ol, err := uc.repo.OrderGetAll(ctx, u)
+// FindWithdrawalsList получение информации о выводе средств
+func (uc *GofermartUseCase) FindWithdrawalsList(ctx context.Context) (*entity.WithdrawalsList, error) {
+	ol, err := uc.repo.BalanceGetAll(ctx)
 	if err == nil {
 		return ol, nil
 	}
 	return nil, ErrBadRequest
 }
 
-// FindWithdrawalsList получение информации о выводе средств
-func (uc *GofermartUseCase) FindWithdrawalsList(ctx context.Context) (*entity.WithdrawalsList, error) {
-	ol, err := uc.repo.BalanceGetAll(ctx)
+// FindBalance получение текущего баланса пользователя
+func (uc *GofermartUseCase) FindBalance(ctx context.Context) (*entity.Balance, error) {
+	b, err := uc.repo.Balance(ctx)
 	if err == nil {
-		return ol, nil
+		return b, nil
 	}
 	return nil, ErrBadRequest
 }

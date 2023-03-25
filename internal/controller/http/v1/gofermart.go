@@ -36,7 +36,7 @@ func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interf
 		r.Delete("/urls", sr.delUrls2)
 		r.Get("/urls", sr.urls)
 		r.Get("/orders", sr.handleUserOrdersGet)
-		//r.Get("/balance", sr.handleUserBalanceGet)
+		r.Get("/balance", sr.handleUserBalanceGet)
 		r.Get("/withdrawals", sr.handleUserWithdrawalsGet)
 		r.Post("/register", sr.handleUserCreate)
 		r.Post("/login", sr.handleUserLogin)
@@ -389,13 +389,15 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
+	// взаимодействие с системой расчёта начислений баллов лояльности
+	lp, err := sr.accrualClient(w, r, order)
+	if err != nil {
+		sr.l.Error(err, "http - v1 - accrualClient")
+	}
+
+	o.Accrual = lp.Accrual
+	o.Status = lp.Status
 	o.UserID = userID
-	o.Status = "NEW"
-	//o.Accrual = 500.65
-	// link
-
-	sr.accrualClient(order)
-
 	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
@@ -429,20 +431,23 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	w.Write([]byte("новый номер заказа принят в обработку"))
 	//sr.respond(w, r, http.StatusAccepted, gofermart)
 }
-func (sr *gofermartRoutes) accrualClient(order string) error {
+
+// Взаимодействие с системой расчёта начислений баллов лояльности
+func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request, order string) (*entity.LoyaltyStatus, error) {
 	order = strings.TrimSpace(order)
+	ctx := r.Context()
 	if order == "" {
-		return fmt.Errorf("error empty arg link")
+		return nil, fmt.Errorf("error empty arg link")
 	}
 	acc := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
 	if len(acc) < 1 {
 		acc = sr.cfg.HTTP.Accrual
 	}
-	link := "http://" + acc + "/api/orders/" + order
+	link := fmt.Sprintf("http://%s/api/orders/%s", acc, order)
 	// конструируем контекст с Timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	//ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	// функция cancel() позволяет при необходимости остановить операции
-	defer cancel()
+	//defer cancel()
 	// собираем запрос с контекстом
 	req, _ := http.NewRequestWithContext(ctx, "GET", link, nil)
 	// конструируем клиент
@@ -450,19 +455,23 @@ func (sr *gofermartRoutes) accrualClient(order string) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Ошибка подключения к клиенту Accrual:: ", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("ошибка подключения к клиенту Accrual:: %e", err)
+		//os.Exit(1)
 	}
 
-	fmt.Printf("Staus CODE:: %d\n CONNECT URL ACCRUAL:: %s\n", resp.StatusCode, link)
+	fmt.Printf("Status CODE:: %d\n CONNECT URL ACCRUAL:: %s\n", resp.StatusCode, link)
+	lp := entity.LoyaltyStatus{}
+	if resp.StatusCode == 204 {
+		lp.Status = "NEW"
+		return &lp, nil
+	}
+
 	defer resp.Body.Close()
-	// читаем поток из тела ответа
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return nil, err
 	}
-	lp := entity.LoyaltyPoints{}
+
 	json.Unmarshal(body, &lp)
 	// и печатаем его
 	fmt.Printf("LoyaltyPoints::%v\n", lp)
@@ -519,7 +528,7 @@ func (sr *gofermartRoutes) accrualClient(order string) error {
 	//if err != nil {
 	//	fmt.Println(err)
 	//}
-	return nil
+	return &lp, nil
 }
 
 // @Summary     Return JSON
@@ -616,6 +625,33 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
 	}
 	sr.respond(w, r, http.StatusOK, ol)
+}
+
+// @Summary     Return JSON
+// @Description Получение текущего баланса пользователя
+// @ID          handleUserBalanceGet
+// @Tags  	    gofermart
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} response — успешная обработка запроса
+// @Failure     401 {object} response — пользователь не аутентифицирован
+// @Failure     500 {object} response — внутренняя ошибка сервера
+// @Router      /user/balance [get]
+func (sr *gofermartRoutes) handleUserBalanceGet(w http.ResponseWriter, r *http.Request) {
+	userID, err := sr.IsAuthenticated(w, r)
+	if err != nil {
+		sr.respond(w, r, http.StatusUnauthorized, nil)
+		return
+	}
+	ctx := r.Context()
+	u := entity.User{}
+	u.UserID = userID
+	b, err := sr.s.FindBalance(ctx)
+	if err != nil {
+		sr.error(w, r, http.StatusBadRequest, err)
+	}
+
+	sr.respond(w, r, http.StatusOK, b)
 }
 
 // @Summary     Return JSON

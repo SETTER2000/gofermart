@@ -127,6 +127,9 @@ func (i *InFiles) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withd
 func (i *InFiles) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, error) {
 	return nil, nil
 }
+func (i *InFiles) Balance(ctx context.Context) (*entity.Balance, error) {
+	return nil, nil
+}
 func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 	for _, short := range i.m[sh.UserID] {
 		if short.Slug == sh.Slug {
