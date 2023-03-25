@@ -94,7 +94,7 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("ORDER-NUM OrderIn:::%v\n", o.Number)
+
 	_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
@@ -124,9 +124,11 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	//
 	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
 	rows, err := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
+	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer rows.Close()
 	for rows.Next() {
 		err := rows.Scan(&accrual)

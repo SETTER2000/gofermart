@@ -443,14 +443,10 @@ func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request,
 	if len(acc) < 1 {
 		acc = sr.cfg.HTTP.Accrual
 	}
-	link := fmt.Sprintf("http://%s/api/orders/%s", acc, order)
-	// конструируем контекст с Timeout
-	//ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	// функция cancel() позволяет при необходимости остановить операции
-	//defer cancel()
-	// собираем запрос с контекстом
+
+	link := fmt.Sprintf("%s/api/orders/%s", acc, order)
 	req, _ := http.NewRequestWithContext(ctx, "GET", link, nil)
-	// конструируем клиент
+
 	client := &http.Client{}
 
 	resp, err := client.Do(req)
@@ -555,6 +551,7 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
 		return
 	}
+
 	o := entity.Order{}
 	wd := entity.Withdraw{}
 	defer r.Body.Close()
@@ -566,11 +563,13 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
+
 	o.Number, _ = strconv.Atoi(wd.NumOrder)
 	if !luna.Luna(o.Number) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
+
 	o.UserID = userID
 	or, err := sr.s.OrderFindByID(ctx, &o) // есть ли заказ у пользователя
 	if err != nil || or.Number == "" {
@@ -639,14 +638,14 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 // @Failure     500 {object} response — внутренняя ошибка сервера
 // @Router      /user/balance [get]
 func (sr *gofermartRoutes) handleUserBalanceGet(w http.ResponseWriter, r *http.Request) {
-	userID, err := sr.IsAuthenticated(w, r)
+	ctx := r.Context()
+
+	_, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
-	ctx := r.Context()
-	u := entity.User{}
-	u.UserID = userID
+
 	b, err := sr.s.FindBalance(ctx)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
@@ -670,6 +669,7 @@ func (sr *gofermartRoutes) handleUserBalanceGet(w http.ResponseWriter, r *http.R
 // @Router      /api/user/withdrawals [get]
 func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
 	_, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
@@ -680,9 +680,11 @@ func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *ht
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
 	}
+
 	if len(*ol) < 1 {
 		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
 	}
+
 	sr.respond(w, r, http.StatusOK, ol)
 }
 
@@ -719,14 +721,6 @@ func (sr *gofermartRoutes) batch(w http.ResponseWriter, r *http.Request) {
 		rs = append(rs, gr)
 	}
 
-	//obj, err := json.Marshal(rs)
-	//if err != nil {
-	//	sr.error(w, r, http.StatusBadRequest, err)
-	//	return
-	//}
-	//w.Header().Set("Content-Type", "application/json")
-	//w.WriteHeader(http.StatusCreated)
-	//w.Write(obj)
 	sr.respond(w, r, http.StatusCreated, rs)
 }
 
@@ -738,7 +732,6 @@ func (sr *gofermartRoutes) batch(w http.ResponseWriter, r *http.Request) {
 // образом оповещать пользователя об успешности или неуспешности не нужно.
 func (sr *gofermartRoutes) delUrls(w http.ResponseWriter, r *http.Request) {
 	var slugs []string
-	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
