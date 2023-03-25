@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+
 	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
 	"github.com/SETTER2000/gofermart/scripts"
@@ -12,8 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	"log"
-	"os"
 )
 
 const (
@@ -459,17 +459,20 @@ func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 }
 
 func Connect(cfg *config.Config) (db *sqlx.DB) {
-	db, _ = sqlx.Open(driverName, cfg.ConnectDB)
-	err := db.Ping()
+	db, err := sqlx.Open(driverName, cfg.ConnectDB)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
-		os.Exit(1)
+		log.Fatal("open: ", err)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal("ping: ", err)
 	}
 	n := 100
 	db.SetMaxIdleConns(n)
 	db.SetMaxOpenConns(n)
 	schema := `
--- CREATE EXTENSION "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.user
 (
 	user_id UUID NOT NULL DEFAULT uuid_generate_v1(),
