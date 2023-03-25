@@ -153,17 +153,11 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	if err != nil {
 		return err
 	}
+
 	o.Accrual = accrual
 	fmt.Printf("RETURNING accrual:: %v\n", o.Accrual)
 
 	defer stmt.Close()
-
-	//
-	//rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
-	//if err != nil {
-	//	log.Fatal(err)
-	//	return nil, err
-	//}
 
 	if _, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
 		if err = tx.Rollback(); err != nil {
@@ -183,15 +177,7 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 		log.Fatalf("insert and update drivers: unable to commit: %v", err)
 		return err
 	}
-	fmt.Printf("OrderPostBalanceWithdraw списание:::%v\n", wd.Sum)
-	//_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
-	//if err, ok := err.(*pgconn.PgError); ok {
-	//	if err.Code == pgerrcode.UniqueViolation {
-	//		NewConflictError("old url", "http://testiki", ErrAlreadyExists)
-	//		return nil
-	//	}
-	//	return err
-	//}
+
 	return nil
 }
 
@@ -242,11 +228,12 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 	if err != nil {
 		log.Fatal(err)
 	}
-	//sh := entity.Gofermart{}
+
 	sh.Slug = slug
 	sh.URL = url
 	sh.UserID = id
 	sh.Del = del
+
 	return sh, nil
 }
 
@@ -266,16 +253,19 @@ func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.
 			log.Fatal(err)
 		}
 	}
+
 	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	or := entity.OrderResponse{}
 	or.Number = number
 	or.UserID = userID
 	or.UploadedAt = uploadedAt
 	or.Status = status
 	or.Accrual = accrual
+
 	return &or, nil
 }
 
@@ -285,10 +275,10 @@ func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authenticatio
 
 	q := `SELECT user_id, login, encrypted_passwd FROM "user" WHERE login=$1`
 	rows, err := i.w.db.Queryx(q, l)
-	//rows, err := i.w.db.Query("SELECT * FROM user WHERE login=$1", l)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	for rows.Next() {
 		err := rows.Scan(&userID, &login, &encrypt)
@@ -300,6 +290,7 @@ func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authenticatio
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	a.ID = userID
 	a.Login = login
 	a.EncryptPassword = encrypt
@@ -315,6 +306,7 @@ func (i *InSQL) GetByID(ctx context.Context, l string) (*entity.Authentication, 
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	for rows.Next() {
 		err := rows.Scan(&userID, &login, &encrypt)
@@ -322,22 +314,28 @@ func (i *InSQL) GetByID(ctx context.Context, l string) (*entity.Authentication, 
 			log.Fatal(err)
 		}
 	}
+
 	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if userID == "" {
 		return nil, ErrNotFound
 	}
+
 	a.ID = userID
 	a.Login = login
 	a.EncryptPassword = encrypt
+
 	return &a, nil
 }
 
 func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error) {
 	var slug, url, id string
+
 	q := `SELECT slug, url, user_id FROM gofermart WHERE user_id=$1 AND del=$2`
+
 	rows, err := i.w.db.Queryx(q, u.UserID, false)
 	if err != nil {
 		log.Fatal(err)
@@ -345,6 +343,7 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 	}
 
 	l := entity.List{}
+
 	for rows.Next() {
 		err = rows.Scan(&slug, &url, &id)
 		if err != nil {
@@ -354,22 +353,27 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 		l.Slug = scripts.GetHost(i.cfg.HTTP, slug)
 		u.Urls = append(u.Urls, l)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return u, nil
 }
 
 func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
 	var number, userID, uploadedAt, status string
 	var accrual float32
+
 	// 2020-12-10T15:15:45+03:00
 	q := `SELECT number, user_id,  uploaded_at, status, Round(accrual) FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
+
 	rows, err := i.w.db.Queryx(q, u.UserID)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
+
 	or := entity.OrderResponse{}
 	ol := entity.OrderList{}
 	for rows.Next() {
@@ -377,23 +381,27 @@ func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderL
 		if err != nil {
 			return nil, err
 		}
+
 		or.Number = number
 		or.Status = status
 		or.Accrual = accrual
 		or.UploadedAt = uploadedAt
 		ol = append(ol, or)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return &ol, nil
 }
 
 // Balance получение текущего баланса пользователя
 func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	var current, withdrawn sql.NullFloat64
-	// 2020-12-10T15:15:45+03:00
+
 	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
+
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
 		log.Fatal(err)
@@ -410,23 +418,28 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 		b.Current = current.Float64
 		b.Withdraw = withdrawn.Float64
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return &b, nil
 }
 func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, error) {
 	var number, userID, processedAt string
 	var sum float32
-	// 2020-12-10T15:15:45+03:00
+
 	q := `SELECT number, user_id, sum, processed_at FROM "balance" WHERE user_id=$1 ORDER BY processed_at`
+
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
+
 	wd := entity.WithdrawResponse{}
 	ol := entity.WithdrawalsList{}
+
 	for rows.Next() {
 		err = rows.Scan(&number, &userID, &sum, &processedAt)
 		if err != nil {
@@ -437,9 +450,11 @@ func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, err
 		wd.ProcessedAt = processedAt
 		ol = append(ol, wd)
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return &ol, nil
 }
 func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
@@ -452,24 +467,29 @@ func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 		log.Fatal(err)
 		return err
 	}
+
 	if err = rows.Err(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func Connect(cfg *config.Config) (db *sqlx.DB) {
 	db, _ = sqlx.Open(driverName, cfg.ConnectDB)
+
 	err := db.Ping()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
 		os.Exit(1)
 	}
+
 	n := 100
+
 	db.SetMaxIdleConns(n)
 	db.SetMaxOpenConns(n)
 	schema := `
--- CREATE EXTENSION "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS public.user
 (
 	user_id UUID NOT NULL DEFAULT uuid_generate_v1(),
