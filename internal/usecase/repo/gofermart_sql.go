@@ -368,7 +368,7 @@ func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderL
 	var accrual float32
 
 	// 2020-12-10T15:15:45+03:00
-	q := `SELECT number, user_id,  uploaded_at, status, Round(accrual) FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
+	q := `SELECT number, user_id,  uploaded_at, status, accrual FROM "order" WHERE user_id=$1 ORDER BY uploaded_at`
 
 	rows, err := i.w.db.Queryx(q, u.UserID)
 	if err != nil {
