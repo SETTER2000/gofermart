@@ -545,7 +545,6 @@ func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request,
 // @Router      /user/balance/withdraw [post]
 func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	// проверка аутентификации
 	userID, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
@@ -585,12 +584,14 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		if errors.Is(err, repo.ErrAlreadyExists) {
 			sr.error(w, r, http.StatusConflict, err)
 			return
+		} else if errors.Is(err, repo.ErrInsufficientFundsAccount) {
+			// TODO 402 — на счету недостаточно средств;
+			sr.error(w, r, http.StatusPaymentRequired, err)
+			return
 		}
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
-
-	// TODO 402 — на счету недостаточно средств;
 
 	fmt.Printf("handleUserBalanceWithdraw Заказ: %s\n", or.Number)
 	sr.respond(w, r, http.StatusOK, "успешная обработка запроса")

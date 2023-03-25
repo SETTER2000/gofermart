@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrAlreadyExists = errors.New("already exists")
+	ErrNotFound                 = errors.New("not found")
+	ErrAlreadyExists            = errors.New("already exists")
+	ErrInsufficientFundsAccount = errors.New("insufficient funds in the account")
 )
 
 // TimeError предназначен для ошибок с фиксацией времени возникновения.

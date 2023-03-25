@@ -105,20 +105,93 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	return nil
 }
 
+// OrderPostBalanceWithdraw запрос на списание средств
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
-	stmt, err := i.w.db.Prepare("INSERT INTO public.balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
+	o := entity.Order{}
+	var accrual float32
+	//
+	//stmt0, err := tx.Prepare("")
+	//if err != nil {
+	//	return err
+	//}
+	//if rows, err := stmt0.Queryx(stmt0, wd.NumOrder, wd.UserID, wd.Sum); err != nil {
+	//	if err = tx.Rollback(); err != nil {
+	//		log.Fatalf("select drivers: unable to rollback: %v", err)
+	//	}
+	//	fmt.Printf("ROWS:: %v", rows)
+	//	return err
+	//}
+	//
+	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
+	rows, err := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("OrderPostBalanceWithdraw списание:::%v\n", wd.Sum)
-	_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
-	if err, ok := err.(*pgconn.PgError); ok {
-		if err.Code == pgerrcode.UniqueViolation {
-			NewConflictError("old url", "http://testiki", ErrAlreadyExists)
-			return nil
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&accrual)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if accrual <= 0 {
+		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
+	}
+
+	tx, err := i.w.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
+	if err != nil {
+		return err
+	}
+
+	stmt2, err := tx.Prepare("UPDATE \"order\" SET accrual = accrual - $3 WHERE number = $1 AND user_id=$2 RETURNING accrual")
+	if err != nil {
+		return err
+	}
+	o.Accrual = accrual
+	fmt.Printf("RETURNING accrual:: %v\n", o.Accrual)
+
+	defer stmt.Close()
+
+	//
+	//rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
+	//if err != nil {
+	//	log.Fatal(err)
+	//	return nil, err
+	//}
+
+	if _, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
+		if err = tx.Rollback(); err != nil {
+			log.Fatalf("insert drivers: unable to rollback: %v", err)
 		}
 		return err
 	}
+
+	if _, err = stmt2.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
+		if err = tx.Rollback(); err != nil {
+			log.Fatalf("update drivers: unable to rollback: %v", err)
+		}
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Fatalf("insert and update drivers: unable to commit: %v", err)
+		return err
+	}
+	fmt.Printf("OrderPostBalanceWithdraw списание:::%v\n", wd.Sum)
+	//_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
+	//if err, ok := err.(*pgconn.PgError); ok {
+	//	if err.Code == pgerrcode.UniqueViolation {
+	//		NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+	//		return nil
+	//	}
+	//	return err
+	//}
 	return nil
 }
 
@@ -427,7 +500,7 @@ CREATE TABLE IF NOT EXISTS public.order
     number      NUMERIC PRIMARY KEY,
     user_id     uuid,
     uploaded_at TIMESTAMP(0) WITH TIME ZONE,
-    accrual     NUMERIC(8, 1) DEFAULT 0,
+    accrual     NUMERIC(8, 1) DEFAULT 0 CHECK ( accrual >= 0 ),
     status      state,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
