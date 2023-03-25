@@ -243,7 +243,7 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.OrderResponse, error) {
 	var number, userID, uploadedAt, status string
 	var accrual float32
-	q := `SELECT number, user_id, uploaded_at, status, Round(accrual) FROM "order" WHERE number=$1`
+	q := `SELECT number, user_id, uploaded_at, status, accrual FROM "order" WHERE number=$1`
 	rows, err := i.w.db.Queryx(q, o.Number)
 	if err != nil {
 		log.Fatal(err)
