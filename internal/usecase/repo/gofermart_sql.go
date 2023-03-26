@@ -109,19 +109,7 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
 	o := entity.Order{}
 	var accrual float32
-	//
-	//stmt0, err := tx.Prepare("")
-	//if err != nil {
-	//	return err
-	//}
-	//if rows, err := stmt0.Queryx(stmt0, wd.NumOrder, wd.UserID, wd.Sum); err != nil {
-	//	if err = tx.Rollback(); err != nil {
-	//		log.Fatalf("select drivers: unable to rollback: %v", err)
-	//	}
-	//	fmt.Printf("ROWS:: %v", rows)
-	//	return err
-	//}
-	//
+
 	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
 	rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
 	err := rows.Err()
@@ -140,6 +128,8 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	if accrual <= 0 {
 		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
 	}
+
+	fmt.Printf("SUM INSERT: %v", wd.Sum)
 
 	tx, err := i.w.db.Begin()
 	if err != nil {

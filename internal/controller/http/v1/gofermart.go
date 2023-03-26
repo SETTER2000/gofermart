@@ -547,10 +547,10 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 	// проверка правильного формата запроса
-	if !sr.ContentTypeCheck(w, r, "application/json") {
-		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
-		return
-	}
+	//if !sr.ContentTypeCheck(w, r, "application/json") {
+	//	sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
+	//	return
+	//}
 
 	o := entity.Order{}
 	wd := entity.Withdraw{}
@@ -566,6 +566,7 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 
 	o.Number, _ = strconv.Atoi(wd.NumOrder)
 	if !luna.Luna(o.Number) { // цветы, цветы
+		fmt.Printf("luna работает, неверный формат номера заказа: %v", o.Number)
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
@@ -573,7 +574,7 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	o.UserID = userID
 	or, err := sr.s.OrderFindByID(ctx, &o) // есть ли заказ у пользователя
 	if err != nil || or.Number == "" {
-		sr.respond(w, r, http.StatusUnprocessableEntity, nil)
+		sr.respond(w, r, http.StatusOK, nil)
 		return
 	}
 
