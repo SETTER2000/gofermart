@@ -593,7 +593,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 
-	fmt.Printf("handleUserBalanceWithdraw Заказ: %s\n", wd.Order)
 	sr.respond(w, r, http.StatusOK, "успешная обработка запроса")
 }
 
