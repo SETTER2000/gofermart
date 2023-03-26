@@ -104,74 +104,89 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	}
 	return nil
 }
-
-// OrderPostBalanceWithdraw запрос на списание средств
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
-	o := entity.Order{}
-	var accrual float32
-
-	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
-	rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
-	err := rows.Err()
+	stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer rows.Close()
-	for rows.Next() {
-		err := rows.Scan(&accrual)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	if accrual <= 0 {
-		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
-	}
-
-	fmt.Printf("SUM INSERT: %v", wd.Sum)
-
-	tx, err := i.w.db.Begin()
-	if err != nil {
-		return err
-	}
-
-	stmt, err := tx.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
-	if err != nil {
-		return err
-	}
-
-	stmt2, err := tx.Prepare("UPDATE \"order\" SET accrual = accrual - $3 WHERE number = $1 AND user_id=$2 RETURNING accrual")
-	if err != nil {
-		return err
-	}
-
-	o.Accrual = accrual
-	fmt.Printf("RETURNING accrual:: %v\n", o.Accrual)
-
-	defer stmt.Close()
-
-	if _, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
-		if err = tx.Rollback(); err != nil {
-			log.Fatalf("insert drivers: unable to rollback: %v", err)
+	_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
+	if err, ok := err.(*pgconn.PgError); ok {
+		if err.Code == pgerrcode.UniqueViolation {
+			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
 		}
 		return err
 	}
-
-	if _, err = stmt2.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
-		if err = tx.Rollback(); err != nil {
-			log.Fatalf("update drivers: unable to rollback: %v", err)
-		}
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		log.Fatalf("insert and update drivers: unable to commit: %v", err)
-		return err
-	}
-
 	return nil
 }
+
+// OrderPostBalanceWithdraw запрос на списание средств
+//func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
+//	o := entity.Order{}
+//	var accrual float32
+//
+//	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
+//	rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
+//	err := rows.Err()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	defer rows.Close()
+//	for rows.Next() {
+//		err := rows.Scan(&accrual)
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//	}
+//
+//	if accrual <= 0 {
+//		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
+//	}
+//
+//	fmt.Printf("SUM INSERT: %v", wd.Sum)
+//
+//	tx, err := i.w.db.Begin()
+//	if err != nil {
+//		return err
+//	}
+//
+//	stmt, err := tx.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
+//	if err != nil {
+//		return err
+//	}
+//
+//	stmt2, err := tx.Prepare("UPDATE \"order\" SET accrual = accrual - $3 WHERE number = $1 AND user_id=$2 RETURNING accrual")
+//	if err != nil {
+//		return err
+//	}
+//
+//	o.Accrual = accrual
+//	fmt.Printf("RETURNING accrual:: %v\n", o.Accrual)
+//
+//	defer stmt.Close()
+//
+//	if _, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
+//		if err = tx.Rollback(); err != nil {
+//			log.Fatalf("insert drivers: unable to rollback: %v", err)
+//		}
+//		return err
+//	}
+//
+//	if _, err = stmt2.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
+//		if err = tx.Rollback(); err != nil {
+//			log.Fatalf("update drivers: unable to rollback: %v", err)
+//		}
+//		return err
+//	}
+//
+//	if err := tx.Commit(); err != nil {
+//		log.Fatalf("insert and update drivers: unable to commit: %v", err)
+//		return err
+//	}
+//
+//	return nil
+//}
 
 // BalanceWriteOff запрос на списание средств
 func (i *InSQL) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
@@ -392,7 +407,7 @@ func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderL
 func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	var current, withdrawn sql.NullFloat64
 
-	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
+	q := `SELECT SUM(accrual)  AS current , (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
 
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
@@ -407,7 +422,7 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 			return nil, err
 		}
 
-		b.Current = current.Float64
+		b.Current = current.Float64 - withdrawn.Float64
 		b.Withdraw = withdrawn.Float64
 	}
 
@@ -518,8 +533,8 @@ CREATE TABLE IF NOT EXISTS public.balance
     user_id      uuid NOT NULL,
     sum          NUMERIC(8, 2) NOT NULL CHECK (sum > 0),
     processed_at TIMESTAMP(0) WITH TIME ZONE,
-    FOREIGN KEY (number) REFERENCES public."order" (number)
-        MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
+--     FOREIGN KEY (number) REFERENCES public."order" (number)
+--         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
 --     PRIMARY KEY(number, user_id, sum)

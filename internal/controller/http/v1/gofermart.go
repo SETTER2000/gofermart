@@ -541,7 +541,7 @@ func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request,
 // @Router      /user/balance/withdraw [post]
 func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, err := sr.IsAuthenticated(w, r)
+	_, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
@@ -571,12 +571,12 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 
-	o.UserID = userID
-	or, err := sr.s.OrderFindByID(ctx, &o) // есть ли заказ у пользователя
-	if err != nil || or.Number == "" {
-		sr.respond(w, r, http.StatusOK, nil)
-		return
-	}
+	//o.UserID = userID
+	//or, err := sr.s.OrderFindByID(ctx, &o) // есть ли заказ у пользователя
+	//if err != nil || or.Number == "" {
+	//	sr.respond(w, r, http.StatusExpectationFailed, nil)
+	//	return
+	//}
 
 	wd.Order = &o
 	err = sr.s.OrderBalanceWithdrawAdd(ctx, &wd) // списание
@@ -593,7 +593,7 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 
-	fmt.Printf("handleUserBalanceWithdraw Заказ: %s\n", or.Number)
+	fmt.Printf("handleUserBalanceWithdraw Заказ: %s\n", wd.Order)
 	sr.respond(w, r, http.StatusOK, "успешная обработка запроса")
 }
 
