@@ -55,17 +55,6 @@ func (s *InMemory) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) erro
 func (s *InMemory) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {
 	return nil, nil
 }
-func (s *InMemory) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
-	for _, short := range s.m[sh.UserID] {
-		if short.Slug == sh.Slug {
-			sh.URL = short.URL
-			sh.UserID = short.UserID
-			sh.Del = short.Del
-			break
-		}
-	}
-	return sh, nil
-}
 func (s *InMemory) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
 	return nil
 }

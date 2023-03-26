@@ -8,7 +8,3 @@ var (
 	ErrAccessDenied  = errors.New(`access denied`)
 	ErrBadRequest    = errors.New("bad request")
 )
-
-type response struct {
-	Error string `json:"error" example:"message"`
-}

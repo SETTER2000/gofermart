@@ -3,17 +3,11 @@ package repo
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
 	"github.com/SETTER2000/gofermart/scripts"
 	"io"
 	"os"
-)
-
-const (
-	secretSecret = "RtsynerpoGIYdab_s234r"
-	cookieName   = "access_token"
 )
 
 type (
@@ -23,8 +17,8 @@ type (
 	}
 
 	consumer struct {
-		file    *os.File
-		cfg     *config.Config
+		file *os.File
+		//cfg     *config.Config
 		decoder *json.Decoder
 		//decoder *bufio.Reader
 	}
@@ -130,18 +124,19 @@ func (i *InFiles) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, e
 func (i *InFiles) Balance(ctx context.Context) (*entity.Balance, error) {
 	return nil, nil
 }
-func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
-	for _, short := range i.m[sh.UserID] {
-		if short.Slug == sh.Slug {
-			sh.URL = short.URL
-			sh.UserID = short.UserID
-			sh.Del = short.Del
-			fmt.Println("НАШЁЛ URL: ", sh.URL)
-			break
-		}
-	}
-	return sh, nil
-}
+
+//func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
+//	for _, short := range i.m[sh.UserID] {
+//		if short.Slug == sh.Slug {
+//			sh.URL = short.URL
+//			sh.UserID = short.UserID
+//			sh.Del = short.Del
+//			fmt.Println("НАШЁЛ URL: ", sh.URL)
+//			break
+//		}
+//	}
+//	return sh, nil
+//}
 
 // search by slug
 func (i *InFiles) searchBySlug(sh *entity.Gofermart) (*entity.Gofermart, error) {
@@ -161,19 +156,20 @@ func (i *InFiles) searchBySlug(sh *entity.Gofermart) (*entity.Gofermart, error) 
 	}
 	return sh, nil
 }
-func (i *InFiles) getAll() error {
-	sh := &entity.Gofermart{}
-	for {
-		if err := i.r.decoder.Decode(&sh); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		i.m[sh.UserID] = append(i.m[sh.UserID], *sh)
-	}
-	return nil
-}
+
+//	func (i *InFiles) getAll() error {
+//		sh := &entity.Gofermart{}
+//		for {
+//			if err := i.r.decoder.Decode(&sh); err != nil {
+//				if err == io.EOF {
+//					break
+//				}
+//				return err
+//			}
+//			i.m[sh.UserID] = append(i.m[sh.UserID], *sh)
+//		}
+//		return nil
+//	}
 func (i *InFiles) getAllUserID(u *entity.User) (*entity.User, error) {
 	lst := entity.List{}
 	shorts := i.m[u.UserID]

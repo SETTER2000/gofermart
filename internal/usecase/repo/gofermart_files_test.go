@@ -2,12 +2,9 @@ package repo
 
 import (
 	"context"
-	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
 	"github.com/stretchr/testify/mock"
 )
-
-var cfg, _ = config.NewConfig()
 
 type MockShorturlRepo struct {
 	mock.Mock

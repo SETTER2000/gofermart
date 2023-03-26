@@ -1,0 +1,13 @@
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (4242424242424242, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:03:09 +00:00', 0.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (426102261241199217, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:03:30 +00:00', 0.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (30117694974441, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:03:40 +00:00', 0.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (8376841766, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:04:09 +00:00', 0.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (4261022612411992175, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:04:23 +00:00', 0.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (42610226124119921, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:06:00 +00:00', 0.00, 'NEW');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (545776841, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:08:56 +00:00', 107.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (37604325248421, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:09:42 +00:00', 1507.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (367356718881165, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:10:18 +00:00', 500.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (101725, 'ce67f4ea-ca99-11ed-85be-570698cfc40c', '2023-03-24 23:16:51 +00:00', 0.00, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (58704867, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:11:28 +00:00', 900.10, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (5165659, '55e66b7e-ca8e-11ed-85be-570698cfc40c', '2023-03-24 22:11:00 +00:00', 100.25, 'PROCESSED');
+INSERT INTO public."order" (number, user_id, uploaded_at, accrual, status) VALUES (7733868, 'ce67f4ea-ca99-11ed-85be-570698cfc40c', '2023-03-24 23:17:30 +00:00', 3802.72, 'PROCESSED');

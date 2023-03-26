@@ -13,7 +13,3 @@ var (
 	ErrBadFormatOrder       = errors.New("invalid order number format")
 	ErrIncorrectLoginOrPass = errors.New("incorrect login or password")
 )
-
-type response struct {
-	Error string `json:"error" example:"message"`
-}

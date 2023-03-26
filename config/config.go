@@ -44,7 +44,7 @@ type (
 	}
 )
 
-var instance *Config
+//var instance *Config
 
 // NewConfig returns app config.
 func NewConfig() (*Config, error) {

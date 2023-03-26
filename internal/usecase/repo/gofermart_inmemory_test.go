@@ -3,25 +3,17 @@ package repo
 import (
 	"context"
 	"fmt"
-	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
-	"sync"
 	"testing"
 )
 
 func TestInMemory_Put(t *testing.T) {
-	type fields struct {
-		lock *sync.Mutex
-		m    map[string]entity.Gofermarts
-		cfg  *config.Config
-	}
 	type args struct {
 		ctx context.Context
 		sh  *entity.Gofermart
 	}
 	tests := []struct {
 		name       string
-		fields     fields
 		args       args
 		countUID   int
 		countShort int
