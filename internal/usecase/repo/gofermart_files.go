@@ -105,15 +105,19 @@ func (i *InFiles) GetByLogin(ctx context.Context, l string) (*entity.Authenticat
 func (i *InFiles) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {
 	return nil, nil
 }
-func (i *InFiles) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+func (i *InFiles) OrderListGetUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	return nil, nil
+}
+func (i *InFiles) OrderListGetStatus(ctx context.Context) (*entity.OrderList, error) {
 	return nil, nil
 }
 func (i *InFiles) OrderIn(ctx context.Context, sh *entity.Order) error {
 	return nil
 }
-func (i *InFiles) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
-	return nil
-}
+
+//func (i *InFiles) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
+//	return nil
+//}
 
 func (i *InFiles) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
 	return nil

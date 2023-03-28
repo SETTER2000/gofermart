@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
+	"github.com/SETTER2000/gofermart/internal/usecase"
 	"io"
 	"net/http"
 	"strings"
@@ -17,15 +18,17 @@ type AClient struct {
 	client *http.Client
 	cfg    *config.Config
 	url    string
+	s      usecase.Gofermart
 }
 
 // NewAClient - accrual client
-func NewAClient(cfg *config.Config) *AClient {
+func NewAClient(s usecase.Gofermart, cfg *config.Config) *AClient {
 	return &AClient{
 		ctx:    context.Background(),
 		client: &http.Client{},
 		cfg:    cfg,
 		url:    cfg.HTTP.Accrual,
+		s:      s,
 	}
 }
 
@@ -66,7 +69,37 @@ func (a *AClient) LoyaltyFind(order string) (*entity.LoyaltyStatus, error) {
 	return &ls, nil
 }
 
+func (a *AClient) Start() error {
+	ctx := context.Background()
+
+	//b := make(chan entity.LoyaltyStatus)
+	//a.s.OrderListUserID(ctx, &u)
+
+	ol, err := a.s.OrderListAll(ctx)
+	if err != nil {
+		return err
+	}
+	var l entity.LoyaltyStatus
+	//var ls []entity.LoyaltyStatus
+	lCh := make(chan entity.LoyaltyStatus, 1)
+	for i, o := range *ol {
+		time.Sleep(1 * time.Second)
+		fmt.Printf("Index: %d %v\n", i, o)
+		go func(o entity.OrderResponse) {
+			l.Status = o.Status
+			l.Accrual = o.Accrual
+			l.Order = o.Number
+			fmt.Printf("ORDER:: %v\n", l)
+			lCh <- l
+			l = *a.Run(lCh)
+			a.s.OrderUpdate(ctx, &l)
+		}(o)
+	}
+	return nil
+}
 func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
+	fmt.Printf("Index: %v\n", "lCh**DDDDD")
+	//fmt.Printf("Index: %v\n", <-lCh)
 	//wg := sync.WaitGroup{}
 	//var ar []entity.LoyaltyStatus
 	var ls entity.LoyaltyStatus
@@ -122,7 +155,7 @@ func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
 		ls.Order = c.Order
 		ls.Accrual = c.Accrual
 		ls.Status = c.Status
-		fmt.Printf("OPROS: %v\n", c)
+		fmt.Printf(":> %v\n", c)
 	}
 	//wg.Wait()
 	//for c := range cCh {

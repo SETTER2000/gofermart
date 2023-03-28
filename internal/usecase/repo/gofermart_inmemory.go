@@ -40,7 +40,10 @@ func (s *InMemory) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofer
 func (s *InMemory) OrderGetByNumber(ctx context.Context, sh *entity.Order) (*entity.OrderResponse, error) {
 	return nil, nil
 }
-func (s *InMemory) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+func (s *InMemory) OrderListGetUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	return nil, nil
+}
+func (s *InMemory) OrderListGetStatus(ctx context.Context) (*entity.OrderList, error) {
 	return nil, nil
 }
 func (s *InMemory) GetByLogin(ctx context.Context, l string) (*entity.Authentication, error) {
@@ -49,9 +52,10 @@ func (s *InMemory) GetByLogin(ctx context.Context, l string) (*entity.Authentica
 func (s *InMemory) OrderIn(ctx context.Context, sh *entity.Order) error {
 	return nil
 }
-func (s *InMemory) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
-	return nil
-}
+
+//	func (s *InMemory) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
+//		return nil
+//	}
 func (s *InMemory) GetByID(ctx context.Context, l string) (*entity.Authentication, error) {
 	return nil, nil
 }

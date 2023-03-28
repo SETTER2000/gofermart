@@ -81,18 +81,27 @@ func (uc *GofermartUseCase) OrderAdd(ctx context.Context, o *entity.Order) (*ent
 }
 
 // BalanceWithdraw запрос на списание средств
-func (uc *GofermartUseCase) BalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
-	err := uc.repo.BalanceWriteOff(ctx, wd)
-	//err := uc.repo.OrderIn(ctx, o)
-	if err != nil {
-		return err
+//func (uc *GofermartUseCase) BalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
+//	err := uc.repo.BalanceWriteOff(ctx, wd)
+//	//err := uc.repo.OrderIn(ctx, o)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
+
+// OrderListUserID возвращает все заказы пользователя
+func (uc *GofermartUseCase) OrderListUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	ol, err := uc.repo.OrderListGetUserID(ctx, u)
+	if err == nil {
+		return ol, nil
 	}
-	return nil
+	return nil, ErrBadRequest
 }
 
-// OrderList возвращает все заказы пользователя
-func (uc *GofermartUseCase) OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
-	ol, err := uc.repo.OrderGetAll(ctx, u)
+// OrderListAll возвращает все заказы в соответствие со статусом
+func (uc *GofermartUseCase) OrderListAll(ctx context.Context) (*entity.OrderList, error) {
+	ol, err := uc.repo.OrderListGetStatus(ctx)
 	if err == nil {
 		return ol, nil
 	}

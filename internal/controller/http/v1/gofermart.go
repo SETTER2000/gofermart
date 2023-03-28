@@ -406,7 +406,6 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 			sr.s.OrderUpdate(ctx, &l)
 			close(lCh)
 		}(*lp)
-
 	}
 
 	//fmt.Printf("CONNECT ACCRUAL status: %v order: %s accrual: %v\n", lp.Status, lp.Order, lp.Accrual)
@@ -632,7 +631,7 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 	}
 
 	u.UserID = userID
-	ol, err := sr.s.OrderList(ctx, &u)
+	ol, err := sr.s.OrderListUserID(ctx, &u)
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
 	}

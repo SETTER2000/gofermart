@@ -107,7 +107,7 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 
 // OrderPostBalanceWithdraw запрос на списание средств
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
-	log.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ:: %v\n", wd)
+	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 1:: %v UserID: %v\n", wd, wd.UserID)
 	// проверка баланса
 	balance, err := i.Balance(ctx)
 	if err != nil {
@@ -132,20 +132,22 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	if balance.Current < wd.Sum {
 		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
 	}
-
+	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 2:: %v UserID: %v\n", wd, wd.UserID)
 	// INSERT
 	stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 3:: %v UserID: %v\n", wd, wd.UserID)
 	_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
 	if err, ok := err.(*pgconn.PgError); ok {
+		fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 5 ERR:: %v UserID: %v\n", wd, wd.UserID)
 		if err.Code == pgerrcode.UniqueViolation {
 			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
 		}
 		return err
 	}
+	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 4:: %v UserID: %v\n", wd, wd.UserID)
 	return nil
 }
 
@@ -218,21 +220,21 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 //}
 
 // BalanceWriteOff запрос на списание средств
-func (i *InSQL) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
-	// TODO queue 😇
-	//stmt, err := i.w.db.Prepare("INSERT INTO public.order (number, user_id, uploaded_at, status, accrual) VALUES ($1,$2, now(),$3,$4)")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
-	//if err, ok := err.(*pgconn.PgError); ok {
-	//	if err.Code == pgerrcode.UniqueViolation {
-	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
-	//	}
-	//	return err
-	//}
-	return nil
-}
+//func (i *InSQL) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
+//	// TODO queue 😇
+//	//stmt, err := i.w.db.Prepare("INSERT INTO public.order (number, user_id, uploaded_at, status, accrual) VALUES ($1,$2, now(),$3,$4)")
+//	//if err != nil {
+//	//	log.Fatal(err)
+//	//}
+//	//_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
+//	//if err, ok := err.(*pgconn.PgError); ok {
+//	//	if err.Code == pgerrcode.UniqueViolation {
+//	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+//	//	}
+//	//	return err
+//	//}
+//	return nil
+//}
 
 func (i *InSQL) Put(ctx context.Context, sh *entity.Gofermart) error {
 	return i.Post(ctx, sh)
@@ -397,7 +399,8 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 	return u, nil
 }
 
-func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+// OrderListGetUserID  вернуть список заказов по UserID
+func (i *InSQL) OrderListGetUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
 	log.Printf("user/orders OrderGetAll: %v\n", u)
 	var number, userID, uploadedAt, status string
 	var accrual float32
@@ -433,11 +436,48 @@ func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderL
 	return &ol, nil
 }
 
+// OrderListGetStatus вернуть список всех заказов в соответствие статуса
+func (i *InSQL) OrderListGetStatus(ctx context.Context) (*entity.OrderList, error) {
+	var number, userID, uploadedAt, status string
+	var accrual float32
+	processed := "PROCESSED"
+	invalid := "INVALID"
+	// 2020-12-10T15:15:45+03:00
+	q := `SELECT number, user_id,  uploaded_at, status, accrual FROM "order" WHERE status!=$1 AND status!=$2 ORDER BY uploaded_at`
+
+	rows, err := i.w.db.Queryx(q, processed, invalid)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	or := entity.OrderResponse{}
+	ol := entity.OrderList{}
+	for rows.Next() {
+		err = rows.Scan(&number, &userID, &uploadedAt, &status, &accrual)
+		if err != nil {
+			return nil, err
+		}
+
+		or.Number = number
+		or.Status = status
+		or.Accrual = accrual
+		or.UploadedAt = uploadedAt
+		ol = append(ol, or)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	log.Printf("  **-- OrderListGetStatus %v\n", ol)
+	return &ol, nil
+}
+
 // Balance получение текущего баланса пользователя
 func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	var current, withdrawn sql.NullFloat64
 
-	q := `SELECT SUM(accrual)  AS current , (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
+	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
 
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
@@ -459,7 +499,7 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("BALANCE::: %v\n", &b)
 	return &b, nil
 }
 func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, error) {
@@ -514,9 +554,11 @@ func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 
 // UpdateOrder обновление заказа
 func (i *InSQL) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error {
-	q := `UPDATE "order" SET status=$1, accrual=$2 WHERE number=$3 AND user_id=$4`
+	q := `UPDATE "order" SET status=$1, accrual=$2 WHERE number=$3`
+	//q := `UPDATE "order" SET status=$1, accrual=$2 WHERE number=$3 AND user_id=$4`
 
-	rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
+	rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order)
+	//rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -525,7 +567,7 @@ func (i *InSQL) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error
 	if err = rows.Err(); err != nil {
 		return err
 	}
-	log.Printf("UPDATE ORDER::%v", ls)
+	fmt.Printf("UPDATE ORDER**::%v\n", ls)
 	return nil
 }
 

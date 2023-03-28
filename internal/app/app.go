@@ -56,7 +56,8 @@ func Run(cfg *config.Config) {
 	}
 
 	// HTTP AClient - клиент для accrual сервиса
-	client := client.NewAClient(cfg)
+	client := client.NewAClient(gofermartUseCase, cfg)
+	client.Start()
 	// HTTP Server
 	handler := chi.NewRouter()
 	// GZIP

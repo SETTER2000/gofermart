@@ -16,9 +16,9 @@ type (
 		UserFindByID(context.Context, string) (*entity.Authentication, error)
 		OrderAdd(context.Context, *entity.Order) (*entity.Order, error)
 		OrderBalanceWithdrawAdd(context.Context, *entity.Withdraw) error
-		BalanceWithdraw(context.Context, *entity.Withdraw) error
 		OrderFindByID(context.Context, *entity.Order) (*entity.OrderResponse, error)
-		OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error)
+		OrderListUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error)
+		OrderListAll(ctx context.Context) (*entity.OrderList, error)
 		FindWithdrawalsList(ctx context.Context) (*entity.WithdrawalsList, error)
 		FindBalance(ctx context.Context) (*entity.Balance, error)
 		OrderUpdate(ctx context.Context, ls *entity.LoyaltyStatus) error
@@ -39,8 +39,8 @@ type (
 		OrderGetByNumber(context.Context, *entity.Order) (*entity.OrderResponse, error)
 		OrderIn(context.Context, *entity.Order) error
 		OrderPostBalanceWithdraw(context.Context, *entity.Withdraw) error
-		BalanceWriteOff(context.Context, *entity.Withdraw) error
-		OrderGetAll(context.Context, *entity.User) (*entity.OrderList, error)
+		OrderListGetUserID(context.Context, *entity.User) (*entity.OrderList, error)
+		OrderListGetStatus(context.Context) (*entity.OrderList, error)
 		BalanceGetAll(context.Context) (*entity.WithdrawalsList, error)
 		Balance(context.Context) (*entity.Balance, error)
 		UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error

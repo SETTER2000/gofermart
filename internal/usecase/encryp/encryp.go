@@ -20,17 +20,6 @@ var x interface{} = "access_token" //прочитать значение мож�
 
 type Encrypt struct{}
 
-//	func RequireAuthentication(next http.Handler) http.Handler {
-//		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//			if !isAuthenticated(r) {
-//				http.Redirect(w, r, "/api/user/login", http.StatusTemporaryRedirect)
-//				return
-//			}
-//			// Assuming authentication passed, run the original handler
-//			next.ServeHTTP(w, r)
-//		})
-//	}
-
 // EncryptionKeyCookie - middleware, которая устанавливает симметрично подписанную
 // и зашифрованную куку устанавливается любому запросу не имеющему соответствующую куку
 // или не прошедшая идентификацию, в куке зашифрован сгенерированный идентификатор пользователя
@@ -45,26 +34,6 @@ func EncryptionKeyCookie(next http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, x, idUser)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
-			// создать токен
-			//token, err := en.EncryptToken(secretSecret)
-			//if err != nil {
-			//	fmt.Printf("Encrypt error: %v\n", err)
-			//}
-			////sessionLifeNanos := 100000000000
-			//http.SetCookie(w, &http.Cookie{
-			//	Name:  "access_token",
-			//	Path:  "/",
-			//	Value: token,
-			//	//Expires: time.Now().Add(time.Nanosecond * time.Duration(sessionLifeNanos)),
-			//})
-			//
-			//idUser, err = en.DecryptToken(token, secretSecret)
-			//if err != nil {
-			//	fmt.Printf(" Decrypt error: %v\n", err)
-			//}
-			//ctx = context.WithValue(ctx, x, idUser)
-			//next.ServeHTTP(w, r.WithContext(ctx))
-			//return
 		}
 		// если кука есть, то расшифровываем её и проверяем подпись
 		idUser, err = en.DecryptToken(at.Value, secretSecret)
