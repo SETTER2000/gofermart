@@ -3,6 +3,7 @@ package v1
 
 import (
 	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/client"
 	"github.com/SETTER2000/gofermart/internal/usecase"
 	"github.com/SETTER2000/gofermart/internal/usecase/encryp"
 	"github.com/SETTER2000/gofermart/pkg/compress/gzip"
@@ -19,7 +20,7 @@ import (
 // @version     0.1.0
 // @host        localhost:8080
 // @BasePath    /
-func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *config.Config) {
+func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *config.Config, c *client.AClient) {
 	headerTypes := []string{
 		"application/javascript",
 		"application/x-gzip",
@@ -56,6 +57,6 @@ func NewRouter(handler *chi.Mux, l logger.Interface, s usecase.Gofermart, cfg *c
 		r.Routes()
 	})
 	{
-		newGofermartRoutes(h, s, l, cfg)
+		newGofermartRoutes(h, s, l, cfg, c)
 	}
 }

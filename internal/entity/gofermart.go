@@ -1,6 +1,9 @@
 package entity
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/SETTER2000/gofermart/config"
 )
 
@@ -8,6 +11,12 @@ import (
 type CorrelationOrigin []Batch
 type Response []GoferResponse
 type Gofermarts []Gofermart
+
+type AClient struct {
+	ctx    context.Context
+	client *http.Client
+	url    string
+}
 
 // Gofermart -.
 type Gofermart struct {
@@ -70,8 +79,8 @@ type User struct {
 }
 
 type Balance struct {
-	Current  float64 `json:"current"`
-	Withdraw float64 `json:"withdraw"`
+	Current  float32 `json:"current"`
+	Withdraw float32 `json:"withdraw"`
 }
 
 // GofermartResponse  --

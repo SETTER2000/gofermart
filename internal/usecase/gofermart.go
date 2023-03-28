@@ -156,6 +156,15 @@ func (uc *GofermartUseCase) FindBalance(ctx context.Context) (*entity.Balance, e
 	return nil, ErrBadRequest
 }
 
+// OrderUpdate обновить состояние заказа
+func (uc *GofermartUseCase) OrderUpdate(ctx context.Context, ls *entity.LoyaltyStatus) error {
+	err := uc.repo.UpdateOrder(ctx, ls)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // UserDelLink принимает короткий URL и возвращает длинный (DELETE /api/user/urls)
 func (uc *GofermartUseCase) UserDelLink(ctx context.Context, u *entity.User) error {
 	err := uc.repo.Delete(ctx, u)

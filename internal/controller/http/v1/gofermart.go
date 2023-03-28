@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SETTER2000/gofermart/config"
+	"github.com/SETTER2000/gofermart/internal/client"
 	"github.com/SETTER2000/gofermart/internal/entity"
 	"github.com/SETTER2000/gofermart/internal/usecase"
 	"github.com/SETTER2000/gofermart/internal/usecase/encryp"
@@ -28,10 +29,11 @@ type gofermartRoutes struct {
 	s   usecase.Gofermart
 	l   logger.Interface
 	cfg *config.Config
+	c   *client.AClient
 }
 
-func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interface, cfg *config.Config) {
-	sr := &gofermartRoutes{s, l, cfg}
+func newGofermartRoutes(handler chi.Router, s usecase.Gofermart, l logger.Interface, cfg *config.Config, c *client.AClient) {
+	sr := &gofermartRoutes{s, l, cfg, c}
 	handler.Route("/user", func(r chi.Router) {
 		r.Delete("/urls", sr.delUrls2)
 		r.Get("/urls", sr.urls)
@@ -369,35 +371,49 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
 		return
 	}
-	ctx := r.Context()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sr.respond(w, r, http.StatusInternalServerError, nil)
 		return
 	}
 
-	o := entity.Order{Config: sr.cfg}
 	order := string(body)
+	o := entity.Order{Config: sr.cfg}
 	o.Number, err = strconv.Atoi(order)
 	if err != nil {
 		sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
 		return
 	}
-	//o.Number = strings.TrimSpace(string(body))
-	//order, _ := strconv.Atoi(o.Number)
+	// проверка формата номера заказа
 	if !luna.Luna(o.Number) { // цветы, цветы
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}
+
 	// взаимодействие с системой расчёта начислений баллов лояльности
-	lp, err := sr.accrualClient(w, r, order)
+	lp, err := sr.c.LoyaltyFind(order)
+	//lp, err := sr.accrualClient(ctx, order)
 	if err != nil {
 		sr.l.Error(err, "http - v1 - accrualClient")
 	}
+	ctx := r.Context()
+	if lp.Status != "PROCESSED" || lp.Status != "INVALID" {
+		lCh := make(chan entity.LoyaltyStatus, 1)
+		// входные значения кладём в inputCh
+		go func(l entity.LoyaltyStatus) {
+			lCh <- l
+			l = *sr.c.Run(lCh)
+			sr.s.OrderUpdate(ctx, &l)
+			close(lCh)
+		}(*lp)
 
+	}
+
+	//fmt.Printf("CONNECT ACCRUAL status: %v order: %s accrual: %v\n", lp.Status, lp.Order, lp.Accrual)
 	o.Accrual = lp.Accrual
 	o.Status = lp.Status
 	o.UserID = userID
+
 	_, err = sr.s.OrderAdd(ctx, &o)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
@@ -433,9 +449,8 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 }
 
 // Взаимодействие с системой расчёта начислений баллов лояльности
-func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request, order string) (*entity.LoyaltyStatus, error) {
+func (sr *gofermartRoutes) accrualClient(ctx context.Context, order string) (*entity.LoyaltyStatus, error) {
 	order = strings.TrimSpace(order)
-	ctx := r.Context()
 	if order == "" {
 		return nil, fmt.Errorf("error empty arg link")
 	}
@@ -452,7 +467,6 @@ func (sr *gofermartRoutes) accrualClient(w http.ResponseWriter, r *http.Request,
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения к клиенту Accrual:: %e", err)
-		//os.Exit(1)
 	}
 
 	fmt.Printf("CONNECT ACCRUAL status: %d  %s\n", resp.StatusCode, link)
@@ -608,14 +622,15 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 // @Failure     500 {object} response — внутренняя ошибка сервера
 // @Router      /user/orders [get]
 func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Request) {
-	// проверка аутентификации
+	ctx := r.Context()
+	u := entity.User{}
+
 	userID, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
-	ctx := r.Context()
-	u := entity.User{}
+
 	u.UserID = userID
 	ol, err := sr.s.OrderList(ctx, &u)
 	if err != nil {
@@ -624,6 +639,7 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 	if len(*ol) < 1 {
 		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
 	}
+
 	sr.respond(w, r, http.StatusOK, ol)
 }
 
@@ -678,11 +694,11 @@ func (sr *gofermartRoutes) handleUserWithdrawalsGet(w http.ResponseWriter, r *ht
 
 	ol, err := sr.s.FindWithdrawalsList(ctx)
 	if err != nil {
-		sr.error(w, r, http.StatusBadRequest, err)
+		sr.error(w, r, http.StatusInternalServerError, err)
 	}
 
 	if len(*ol) < 1 {
-		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
+		sr.respond(w, r, http.StatusNoContent, "нет ни одного списания")
 	}
 
 	sr.respond(w, r, http.StatusOK, ol)

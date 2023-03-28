@@ -104,7 +104,36 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	}
 	return nil
 }
+
+// OrderPostBalanceWithdraw запрос на списание средств
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
+	log.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ:: %v\n", wd)
+	// проверка баланса
+	balance, err := i.Balance(ctx)
+	if err != nil {
+		log.Fatalf("balance error %e", err)
+		return err
+	}
+	//q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
+	//rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
+	//err := rows.Err()
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//defer rows.Close()
+	//
+	//var accrual float32
+	//for rows.Next() {
+	//	err := rows.Scan(&accrual)
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
+	//}
+	if balance.Current < wd.Sum {
+		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
+	}
+
+	// INSERT
 	stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
 	if err != nil {
 		log.Fatal(err)
@@ -369,6 +398,7 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 }
 
 func (i *InSQL) OrderGetAll(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
+	log.Printf("user/orders OrderGetAll: %v\n", u)
 	var number, userID, uploadedAt, status string
 	var accrual float32
 
@@ -422,8 +452,8 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 			return nil, err
 		}
 
-		b.Current = current.Float64 - withdrawn.Float64
-		b.Withdraw = withdrawn.Float64
+		b.Current = float32(current.Float64 - withdrawn.Float64)
+		b.Withdraw = float32(withdrawn.Float64)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -479,6 +509,23 @@ func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 		return err
 	}
 
+	return nil
+}
+
+// UpdateOrder обновление заказа
+func (i *InSQL) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error {
+	q := `UPDATE "order" SET status=$1, accrual=$2 WHERE number=$3 AND user_id=$4`
+
+	rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	log.Printf("UPDATE ORDER::%v", ls)
 	return nil
 }
 

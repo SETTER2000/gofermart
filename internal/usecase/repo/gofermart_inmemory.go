@@ -88,6 +88,10 @@ func (s *InMemory) GetAll(ctx context.Context, u *entity.User) (*entity.User, er
 	return nil, ErrNotFound
 }
 
+func (s *InMemory) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error {
+	return nil
+}
+
 func (s *InMemory) Put(ctx context.Context, sh *entity.Gofermart) error {
 	ln := len(s.m[sh.UserID])
 	if ln < 1 {

@@ -21,6 +21,7 @@ type (
 		OrderList(ctx context.Context, u *entity.User) (*entity.OrderList, error)
 		FindWithdrawalsList(ctx context.Context) (*entity.WithdrawalsList, error)
 		FindBalance(ctx context.Context) (*entity.Balance, error)
+		OrderUpdate(ctx context.Context, ls *entity.LoyaltyStatus) error
 		Shorten(context.Context, *entity.Gofermart) (string, error)
 		LongLink(context.Context, *entity.Gofermart) (string, error)
 		ShortLink(context.Context, *entity.Gofermart) (*entity.Gofermart, error)
@@ -42,6 +43,7 @@ type (
 		OrderGetAll(context.Context, *entity.User) (*entity.OrderList, error)
 		BalanceGetAll(context.Context) (*entity.WithdrawalsList, error)
 		Balance(context.Context) (*entity.Balance, error)
+		UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error
 		Post(context.Context, *entity.Gofermart) error
 		Put(context.Context, *entity.Gofermart) error
 		Get(context.Context, *entity.Gofermart) (*entity.Gofermart, error)

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/SETTER2000/gofermart/internal/client"
 	"github.com/SETTER2000/gofermart/scripts"
 	"github.com/go-chi/chi/v5/middleware"
 	"math/rand"
@@ -54,10 +55,14 @@ func Run(cfg *config.Config) {
 		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
 	}
 
+	// HTTP AClient - клиент для accrual сервиса
+	client := client.NewAClient(cfg)
 	// HTTP Server
 	handler := chi.NewRouter()
+	// GZIP
 	handler.Use(middleware.AllowContentEncoding("deflate", "gzip"))
-	v1.NewRouter(handler, l, gofermartUseCase, cfg)
+	// Router
+	v1.NewRouter(handler, l, gofermartUseCase, cfg, client)
 	httpServer := server.New(handler, server.Host(cfg.HTTP.ServerAddress))
 
 	// waiting signal
