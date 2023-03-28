@@ -392,7 +392,6 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 
 	// взаимодействие с системой расчёта начислений баллов лояльности
 	lp, err := sr.c.LoyaltyFind(order)
-	//lp, err := sr.accrualClient(ctx, order)
 	if err != nil {
 		sr.l.Error(err, "http - v1 - accrualClient")
 	}
@@ -407,8 +406,6 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 			close(lCh)
 		}(*lp)
 	}
-
-	//fmt.Printf("CONNECT ACCRUAL status: %v order: %s accrual: %v\n", lp.Status, lp.Order, lp.Accrual)
 	o.Accrual = lp.Accrual
 	o.Status = lp.Status
 	o.UserID = userID
@@ -480,63 +477,8 @@ func (sr *gofermartRoutes) accrualClient(ctx context.Context, order string) (*en
 	if err != nil {
 		return nil, err
 	}
-
 	json.Unmarshal(body, &lp)
-	// и печатаем его
-	fmt.Printf("LoyaltyPoints::%v\n", lp)
 
-	//--1
-	//
-	//transport := &http.Transport{}
-	//transport.MaxIdleConns = 20
-	//client.Transport = transport
-	////client.Timeout = time.Second * 1
-	//client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-	//	if len(via) >= 2 {
-	//		return errors.New("остановлено после двух Redirect")
-	//	}
-	//	return nil
-	//}
-	//cookie := &http.Cookie{
-	//	Name:   sr.cfg.Cookie.AccessTokenName,
-	//	Value:  "some_token",
-	//	MaxAge: 300,
-	//}
-	//jar, err := cookiejar.New(nil)
-	//if err != nil {
-	//	fmt.Println(err)
-	//} else {
-	//	// Если вы не пользуетесь клиентом или хотите
-	//	// исследовать куки из http.Response, полученные от сервера,
-	//	// можете воспользоваться методом Response.Cookies()
-	//	client.Jar = jar // Client.Jar — это хранилище cookie клиента
-	//}
-	//
-	//// куки можно устанавливать клиенту для всех запросов по определённому URL
-	////client.Jar.SetCookies(url, []*http.Cookie{cookie})
-	//// а можно добавлять к конкретному запросу
-	//req.AddCookie(cookie)
-
-	//request, err := http.NewRequest(http.MethodGet, link, nil)
-	//if err != nil {
-	//	return fmt.Errorf("error request to service accrual: %e", err)
-	//}
-	//request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	//request.Header.Add("Accept", "application/json")
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	//resp, err := client.Get(link)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	// отправляем запрос
-
-	//defer resp.Body.Close()
-	//payload, err := io.Copy(io.Discard, resp.Body)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
 	return &lp, nil
 }
 
@@ -584,13 +526,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		return
 	}
 
-	//o.UserID = userID
-	//or, err := sr.s.OrderFindByID(ctx, &o) // есть ли заказ у пользователя
-	//if err != nil || or.Number == "" {
-	//	sr.respond(w, r, http.StatusExpectationFailed, nil)
-	//	return
-	//}
-
 	wd.Order = &o
 	err = sr.s.OrderBalanceWithdrawAdd(ctx, &wd) // списание
 	if err != nil {
@@ -635,6 +570,7 @@ func (sr *gofermartRoutes) handleUserOrdersGet(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		sr.error(w, r, http.StatusBadRequest, err)
 	}
+
 	if len(*ol) < 1 {
 		sr.respond(w, r, http.StatusNoContent, "нет данных для ответа")
 	}
@@ -713,6 +649,7 @@ func (sr *gofermartRoutes) batch(w http.ResponseWriter, r *http.Request) {
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
+
 	if err = json.Unmarshal(body, &CorrelationOrigin); err != nil {
 		panic(err)
 	}
@@ -921,7 +858,6 @@ func (sr *gofermartRoutes) respond(w http.ResponseWriter, r *http.Request, code 
 }
 
 func (sr *gofermartRoutes) SessionCreated(w http.ResponseWriter, r *http.Request, data string) error {
-	//ctx := r.Context()
 	en := encryp.Encrypt{}
 	// ...создать подписанный секретным ключом токен,
 	token, err := en.EncryptToken(sr.cfg.SecretKey, data)
@@ -944,7 +880,6 @@ func (sr *gofermartRoutes) SessionCreated(w http.ResponseWriter, r *http.Request
 		fmt.Printf(" Decrypt error: %v\n", err)
 		return err
 	}
-	//context.WithValue(ctx, x, idUser)
-	//next.ServeHTTP(w, r.WithContext(ctx))
+
 	return nil
 }

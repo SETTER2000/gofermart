@@ -58,11 +58,9 @@ func (a *AClient) LoyaltyFind(order string) (*entity.LoyaltyStatus, error) {
 
 	ls := entity.LoyaltyStatus{}
 	ls.Order = order
-	//fmt.Printf("CONNECT ACCRUAL status: %d  %s\n", resp.StatusCode, link)
 	json.Unmarshal(body, &ls)
 	if resp.StatusCode == 204 && ls.Status == "" {
 		ls.Status = "NEW"
-		//fmt.Printf("LoyaltyPoints::%v\n", ls)
 		return &ls, nil
 	}
 
@@ -71,60 +69,35 @@ func (a *AClient) LoyaltyFind(order string) (*entity.LoyaltyStatus, error) {
 
 func (a *AClient) Start() error {
 	ctx := context.Background()
-
-	//b := make(chan entity.LoyaltyStatus)
-	//a.s.OrderListUserID(ctx, &u)
-
+	// выбрать все заказы кроме закрытых (PROCESSED, INVALID)
 	ol, err := a.s.OrderListAll(ctx)
 	if err != nil {
 		return err
 	}
+
 	var l entity.LoyaltyStatus
-	//var ls []entity.LoyaltyStatus
 	lCh := make(chan entity.LoyaltyStatus, 1)
-	for i, o := range *ol {
+
+	for _, o := range *ol {
 		time.Sleep(1 * time.Second)
-		fmt.Printf("Index: %d %v\n", i, o)
 		go func(o entity.OrderResponse) {
 			l.Status = o.Status
 			l.Accrual = o.Accrual
 			l.Order = o.Number
-			fmt.Printf("ORDER:: %v\n", l)
 			lCh <- l
 			l = *a.Run(lCh)
-			a.s.OrderUpdate(ctx, &l)
+			a.s.OrderUpdate(ctx, &l) // обновить заказ
 		}(o)
 	}
 	return nil
 }
 func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
-	fmt.Printf("Index: %v\n", "lCh**DDDDD")
-	//fmt.Printf("Index: %v\n", <-lCh)
-	//wg := sync.WaitGroup{}
-	//var ar []entity.LoyaltyStatus
 	var ls entity.LoyaltyStatus
-	//sl := []string{
-	//	"101725",
-	//	"7733868",
-	//	"48200117"}
-	//for _, j := range sl {
-	//ls.Order = order
-	//ls.Status = "NEW"
-	//ar = append(ar, order)
-	//}
-
-	//a := make(chan int, 3)
 	b := make(chan entity.LoyaltyStatus, 1)
-	//a <- 1
-	//a <- 2
-	//a <- 3
-	//for _, l := range orders {
 
 	go func() {
 		s := <-lCh
 		for {
-			//wg.Add(1)
-			//for i := 0; i < len(ar); i++ {
 			time.Sleep(time.Second)
 			r, err := a.LoyaltyFind(s.Order)
 			if err != nil {
@@ -135,21 +108,14 @@ func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
 			if r.Status == "PROCESSED" || r.Status == "INVALID" {
 				b <- *r
 				fmt.Printf("NEW DATA:: %v\n", *r)
-				//TODO Update тут
-
 				break
 			}
-			//fmt.Printf("Loop\n")
+
 			b <- *r
 		}
 		close(b)
-		//wg.Done()
 	}()
-	//}(l)
-	//}
-	//close(a)
-	//cCh := gc.Union2(a, b)
-	//
+
 	for c := range b {
 
 		ls.Order = c.Order
