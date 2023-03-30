@@ -108,46 +108,44 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 // OrderPostBalanceWithdraw запрос на списание средств
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
 	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 1:: %v UserID: %v\n", wd, wd.UserID)
+
 	// проверка баланса
 	balance, err := i.Balance(ctx)
 	if err != nil {
 		log.Fatalf("balance error %e", err)
 		return err
 	}
-	//q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
-	//rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
-	//err := rows.Err()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//defer rows.Close()
-	//
-	//var accrual float32
-	//for rows.Next() {
-	//	err := rows.Scan(&accrual)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//}
+
 	if balance.Current < wd.Sum {
 		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
 	}
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 2:: %v UserID: %v\n", wd, wd.UserID)
+
 	// INSERT
 	stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 3:: %v UserID: %v\n", wd, wd.UserID)
+
 	_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
 	if err, ok := err.(*pgconn.PgError); ok {
-		fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 5 ERR:: %v UserID: %v\n", wd, wd.UserID)
+		fmt.Printf("INSERT ERR -- ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 3 ERR:: %v UserID: %v\n", wd, wd.UserID)
 		if err.Code == pgerrcode.UniqueViolation {
 			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
 		}
 		return err
 	}
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 4:: %v UserID: %v\n", wd, wd.UserID)
+
+	//stmt2, err := i.w.db.Prepare("UPDATE \"order\" SET accrual = accrual - $3 WHERE number = $1 AND user_id=$2 RETURNING accrual")
+	//_, err = stmt2.Exec(wd.NumOrder, wd.UserID, wd.Sum)
+	//if err, ok := err.(*pgconn.PgError); ok {
+	//	fmt.Printf("UPDATE ERR -- ЗАПРОС НА СПИСАНИЕ СРЕДСТВ -4:: %v UserID: %v\n", wd, wd.UserID)
+	//	if err.Code == pgerrcode.UniqueViolation {
+	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
+	//	}
+	//	return err
+	//}
+
+	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 2:: %v UserID: %v\n", wd, wd.UserID)
 	return nil
 }
 
