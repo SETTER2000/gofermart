@@ -174,6 +174,15 @@ func (uc *GofermartUseCase) OrderUpdate(ctx context.Context, ls *entity.LoyaltyS
 	return nil
 }
 
+// OrderUpdateUserID обновить состояние заказа по ID пользователя
+func (uc *GofermartUseCase) OrderUpdateUserID(ctx context.Context, ls *entity.LoyaltyStatus) error {
+	err := uc.repo.UpdateOrderUserID(ctx, ls)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // UserDelLink принимает короткий URL и возвращает длинный (DELETE /api/user/urls)
 func (uc *GofermartUseCase) UserDelLink(ctx context.Context, u *entity.User) error {
 	err := uc.repo.Delete(ctx, u)

@@ -359,8 +359,6 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 // @Failure     500 {object} response — внутренняя ошибка сервера
 // @Router      /user/orders [post]
 func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
-	// TODO менять
-	// проверка аутентификации
 	userID, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
@@ -402,7 +400,7 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		go func(l entity.LoyaltyStatus) {
 			lCh <- l
 			l = *sr.c.Run(lCh)
-			sr.s.OrderUpdate(ctx, &l)
+			sr.s.OrderUpdateUserID(ctx, &l)
 			close(lCh)
 		}(*lp)
 	}

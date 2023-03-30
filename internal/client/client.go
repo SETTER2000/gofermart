@@ -117,16 +117,12 @@ func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
 	}()
 
 	for c := range b {
-
 		ls.Order = c.Order
 		ls.Accrual = c.Accrual
 		ls.Status = c.Status
 		fmt.Printf(":> %v\n", c)
 	}
-	//wg.Wait()
-	//for c := range cCh {
-	//	fmt.Printf("Loyalty_XXX: %v\n", c)
-	//}
+
 	fmt.Printf("EXIT OPROS:: %v %v %v\n", ls.Order, ls.Accrual, ls.Status)
 	return &ls
 }

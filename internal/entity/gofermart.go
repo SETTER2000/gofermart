@@ -38,23 +38,23 @@ type Order struct {
 	Number         int     `json:"number,omitempty"`
 	Status         string  `json:"status,omitempty"`
 	Accrual        float32 `json:"accrual,omitempty"`
-	UploadedAt     string  `json:"uploaded_at"`
-	UserID         string  `json:"user_id,omitempty"`
+	UploadedAt     string  `json:"uploaded_at"  db:"uploaded_at"`
+	UserID         string  `json:"user_id,omitempty"  db:"user_id"`
 	*config.Config `json:"-"`
 }
 type OrderResponse struct {
 	Number         string  `json:"number,omitempty"`
 	Status         string  `json:"status,omitempty"`
 	Accrual        float32 `json:"accrual,omitempty"`
-	UploadedAt     string  `json:"uploaded_at"`
-	UserID         string  `json:"user_id,omitempty"`
+	UploadedAt     string  `json:"uploaded_at" db:"uploaded_at"`
+	UserID         string  `json:"user_id,omitempty" db:"user_id"`
 	*config.Config `json:"-"`
 }
 
 type WithdrawalsList []WithdrawResponse
 
 type Withdraw struct {
-	NumOrder    string  `json:"order"`
+	NumOrder    string  `json:"order" db:"number"`
 	Sum         float32 `json:"sum"`
 	ProcessedAt string  `json:"processed_at"`
 	*Order      `json:"-"`
@@ -67,7 +67,7 @@ type LoyaltyStatus struct {
 }
 
 type WithdrawResponse struct {
-	NumOrder    string  `json:"order"`
+	NumOrder    string  `json:"order" db:"number"`
 	Sum         float32 `json:"sum"`
 	ProcessedAt string  `json:"processed_at"`
 	*Order      `json:"-"`
@@ -79,8 +79,8 @@ type User struct {
 }
 
 type Balance struct {
-	Current  float32 `json:"current"`
-	Withdraw float32 `json:"withdraw"`
+	Current  float64 `json:"current"`
+	Withdraw float64 `json:"withdraw"`
 }
 
 // GofermartResponse  --

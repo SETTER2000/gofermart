@@ -131,6 +131,9 @@ func (i *InFiles) Balance(ctx context.Context) (*entity.Balance, error) {
 func (i *InFiles) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error {
 	return nil
 }
+func (i *InFiles) UpdateOrderUserID(ctx context.Context, ls *entity.LoyaltyStatus) error {
+	return nil
+}
 
 //func (i *InFiles) searchUID(sh *entity.Gofermart) (*entity.Gofermart, error) {
 //	for _, short := range i.m[sh.UserID] {
