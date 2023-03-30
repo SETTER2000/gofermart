@@ -396,7 +396,7 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		sr.l.Error(err, "http - v1 - accrualClient")
 	}
 	ctx := r.Context()
-	if lp.Status != "PROCESSED" || lp.Status != "INVALID" {
+	if lp.Status != "PROCESSED" && lp.Status != "INVALID" {
 		lCh := make(chan entity.LoyaltyStatus, 1)
 		// входные значения кладём в inputCh
 		go func(l entity.LoyaltyStatus) {
