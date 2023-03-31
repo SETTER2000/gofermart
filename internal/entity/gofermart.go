@@ -79,8 +79,8 @@ type User struct {
 }
 
 type Balance struct {
-	Current  float64 `json:"current"`
-	Withdraw float64 `json:"withdraw"`
+	Current  float32 `json:"current"`
+	Withdraw float32 `json:"withdraw"`
 }
 
 // GofermartResponse  --

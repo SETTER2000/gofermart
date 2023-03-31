@@ -92,6 +92,10 @@ func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
 // OrderIn записать новый заказ
 func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	// шаг 1 — объявляем транзакцию
+
+	log.Printf("---------------------------------- ORDER INSERT ---------------------------\n")
+	log.Printf("-----UserID: %v Number: %v Accrual: %v\n-----------", o.UserID, o.Number, o.Accrual)
+
 	tx, err := i.w.db.Begin()
 	if err != nil {
 		return err
@@ -114,7 +118,7 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 	// шаг 2.3 — не забываем закрыть инструкцию, когда она больше не нужна
 	defer stmt2.Close()
 
-	// шаг 3 — указываем, что каждое видео будет добавлено в транзакцию
+	// шаг 3
 	_, err = stmt.ExecContext(ctx, o.Number, o.UserID, o.Status, o.Accrual)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
@@ -160,7 +164,7 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 		return err
 	}
 
-	if float32(balance.Current) < wd.Sum {
+	if balance.Current < wd.Sum {
 		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
 	}
 
@@ -187,9 +191,15 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	if err != nil {
 		return err
 	}
+	defer stmt3.Close()
+
+	//stmt4, err := tx.PrepareContext(ctx, "INSERT INTO \"order\" (number, user_id, uploaded_at, accrual, status) VALUES ($1,$2, now(),$3,$4)")
+	//if err != nil {
+	//	return err
+	//}
+	//defer stmt4.Close()
 	fmt.Printf("ЗАПРОС НА СПИСАНИЕ. ТРАНЗАКЦИЯ - INSERT -2 :: UserID: %v Order: %v Sum: %v\n", wd.UserID, wd.Number, wd.Sum)
 	// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
-	defer stmt3.Close()
 
 	// шаг 3 — указываем, что каждое видео будет добавлено в транзакцию
 	_, err = stmt.ExecContext(ctx, wd.NumOrder, wd.UserID, wd.Sum)
@@ -213,8 +223,8 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	//}
 
 	//q := `SELECT number, user_id, uploaded_at, accrual, status FROM "order" WHERE number=:number`
-	q := `SELECT current,  withdraw + $2 AS withdraw FROM bal WHERE user_id = $1`
-	//q := `SELECT current  - $2  AS current ,  withdraw + $2 AS withdraw FROM bal WHERE user_id = $1`
+	//q := `SELECT current,  withdraw + $2 AS withdraw FROM bal WHERE user_id = $1`
+	q := `SELECT current  AS current ,  withdraw + $2 AS withdraw FROM bal WHERE user_id = $1`
 	//rows, err := i.w.db.Queryx(q, o.Number)
 	rows, err := i.w.db.Query(q, wd.UserID, wd.Sum)
 	if err != nil {
@@ -234,6 +244,21 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 		return err
 	}
 
+	// number, user_id, accrual, status
+	//_, err = stmt4.ExecContext(ctx, wd.Number, wd.UserID, &b.Withdraw)
+	//if err != nil {
+	//	return err
+	//}
+	o := entity.Order{
+		UserID:  wd.UserID,
+		Number:  wd.Number,
+		Status:  "NEW",
+		Accrual: -wd.Sum,
+	}
+	err = i.OrderIn(ctx, &o)
+	if err != nil {
+		return err
+	}
 	//
 	//// INSERT
 	//stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
@@ -587,8 +612,8 @@ func (i *InSQL) OrderListGetStatus(ctx context.Context) (*entity.OrderList, erro
 func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	var current, withdrawn sql.NullFloat64
 
-	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
-	//q := `SELECT current, withdraw FROM bal WHERE user_id=$1`
+	//q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
+	q := `SELECT current, withdraw FROM bal WHERE user_id=$1`
 
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
@@ -603,9 +628,10 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 			return nil, err
 		}
 
-		b.Current = current.Float64 - withdrawn.Float64
-		//b.Current = current.Float64
-		b.Withdraw = withdrawn.Float64
+		//b.Current = current.Float64 - withdrawn.Float64
+		b.Current = float32(current.Float64)
+		b.Withdraw = float32(withdrawn.Float64)
+		//b.Withdraw = withdrawn.Float64
 	}
 
 	if err = rows.Err(); err != nil {
@@ -792,7 +818,7 @@ CREATE TABLE IF NOT EXISTS public.order
     number      NUMERIC PRIMARY KEY,
     user_id     uuid,
     uploaded_at TIMESTAMP(0) WITH TIME ZONE,
-    accrual     NUMERIC(8, 2) DEFAULT 0 CHECK ( accrual >= 0 ),
+    accrual     float4 DEFAULT 0,
     status      state,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
@@ -802,7 +828,7 @@ CREATE TABLE IF NOT EXISTS public.balance
     id           SERIAL PRIMARY KEY,
     number       NUMERIC NOT NULL,
     user_id      uuid NOT NULL,
-    sum          NUMERIC(8, 2) NOT NULL CHECK (sum > 0),
+    sum          float4 NOT NULL CHECK (sum >= 0),
     processed_at TIMESTAMP(0) WITH TIME ZONE,
 --     FOREIGN KEY (number) REFERENCES public."order" (number)
 --         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
@@ -814,8 +840,8 @@ CREATE TABLE IF NOT EXISTS public.bal
 (
     id           SERIAL PRIMARY KEY,
     user_id      uuid    NOT NULL,
-    current      float DEFAULT 0 CHECK (current >= 0),
-    withdraw     float DEFAULT 0 CHECK (current >= 0),
+    current      float4 DEFAULT 0 ,
+    withdraw     float4 DEFAULT 0,
 --     FOREIGN KEY (number) REFERENCES public."order" (number)
 --         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
