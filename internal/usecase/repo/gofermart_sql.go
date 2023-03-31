@@ -13,6 +13,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"log"
+	"math"
 	"os"
 )
 
@@ -253,16 +254,16 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	//if err != nil {
 	//	return err
 	//}
-	o := entity.Order{
-		UserID:  wd.UserID,
-		Number:  wd.Number,
-		Status:  "NEW",
-		Accrual: -wd.Sum,
-	}
-	err = i.OrderIn(ctx, &o)
-	if err != nil {
-		return err
-	}
+	//o := entity.Order{
+	//	UserID:  wd.UserID,
+	//	Number:  wd.Number,
+	//	Status:  "NEW",
+	//	Accrual: -wd.Sum,
+	//}
+	//err = i.OrderIn(ctx, &o)
+	//if err != nil {
+	//	return err
+	//}
 	//
 	//// INSERT
 	//stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
@@ -616,8 +617,8 @@ func (i *InSQL) OrderListGetStatus(ctx context.Context) (*entity.OrderList, erro
 func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	var current, withdrawn sql.NullFloat64
 
-	//q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
-	q := `SELECT current, withdraw FROM bal WHERE user_id=$1`
+	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
+	//q := `SELECT current, withdraw FROM bal WHERE user_id=$1`
 
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
@@ -632,9 +633,9 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 			return nil, err
 		}
 
-		b.Current = float32(current.Float64 - withdrawn.Float64)
+		b.Current = float32(math.Round((current.Float64-withdrawn.Float64)*100) / 100)
 		//b.Current = float32(current.Float64)
-		b.Withdraw = float32(withdrawn.Float64)
+		b.Withdraw = float32(math.Round(withdrawn.Float64*100) / 100)
 		//b.Withdraw = withdrawn.Float64
 	}
 

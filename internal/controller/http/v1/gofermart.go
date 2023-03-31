@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,7 +18,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"io"
+	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"strconv"
 	"strings"
@@ -359,6 +362,7 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 // @Failure     500 {object} response — внутренняя ошибка сервера
 // @Router      /user/orders [post]
 func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
+	log.Printf("--------ORDER ADD handleUserOrders------\n")
 	userID, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
@@ -467,6 +471,7 @@ func (sr *gofermartRoutes) accrualClient(ctx context.Context, order string) (*en
 	lp := entity.LoyaltyStatus{}
 	if resp.StatusCode == 204 {
 		lp.Status = "NEW"
+		lp.Accrual = 0
 		return &lp, nil
 	}
 
@@ -505,7 +510,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	//	return
 	//}
 
-	o := entity.Order{}
 	wd := entity.Withdraw{}
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
@@ -516,11 +520,19 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	o := entity.Order{}
 
 	o.Number, _ = strconv.Atoi(wd.NumOrder)
 	if !luna.Luna(o.Number) { // цветы, цветы
 		fmt.Printf("luna работает, неверный формат номера заказа: %v", o.Number)
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
+		return
+	}
+
+	// добавить ордер
+	err = sr.redirectToOrderAdd(w, r, wd.NumOrder)
+	if err != nil {
+		sr.error(w, r, http.StatusConflict, err)
 		return
 	}
 
@@ -540,6 +552,51 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	}
 
 	sr.respond(w, r, http.StatusOK, "успешная обработка запроса")
+}
+func (sr *gofermartRoutes) redirectToOrderAdd(w http.ResponseWriter, r *http.Request, order string) error {
+	link := sr.cfg.HTTP.BaseURL + "/api/user/orders"
+
+	// конструируем контекст с Timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	// функция cancel() позволяет при необходимости остановить операции
+	defer cancel()
+	// собираем запрос с контекстом
+	req, _ := http.NewRequestWithContext(ctx, "POST", link, bytes.NewBufferString(order))
+	// конструируем клиент
+	client := &http.Client{}
+
+	at, err := r.Cookie("access_token")
+	// если куки нет, то ничего не делаем
+	if err == http.ErrNoCookie {
+		fmt.Errorf("error cookie, empty cookie")
+	}
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return fmt.Errorf("error cookiejar query add order: %e", err)
+	} else {
+		client.Jar = jar
+	}
+
+	req.AddCookie(at)
+	req.Header.Set("Content-Type", "text/plain")
+	// отправляем запрос
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error post query add order: %e", err)
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 && resp.StatusCode != 202 {
+		return fmt.Errorf("status %d: вы не можете использовать данный номер заказа ", resp.StatusCode)
+	}
+	//body, err = io.ReadAll(resp.Body)
+	//if err != nil {
+	//	return fmt.Errorf("error response post query: %e", err)
+	//}
+	//
+	//json.Unmarshal()
+	return nil
 }
 
 // @Summary     Return JSON empty

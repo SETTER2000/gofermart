@@ -61,6 +61,7 @@ func (a *AClient) LoyaltyFind(order string) (*entity.LoyaltyStatus, error) {
 	json.Unmarshal(body, &ls)
 	if resp.StatusCode == 204 && ls.Status == "" {
 		ls.Status = "NEW"
+		ls.Accrual = 0
 		return &ls, nil
 	}
 
