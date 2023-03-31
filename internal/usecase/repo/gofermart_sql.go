@@ -628,8 +628,8 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 			return nil, err
 		}
 
-		//b.Current = current.Float64 - withdrawn.Float64
-		b.Current = float32(current.Float64)
+		b.Current = float32(current.Float64 - withdrawn.Float64)
+		//b.Current = float32(current.Float64)
 		b.Withdraw = float32(withdrawn.Float64)
 		//b.Withdraw = withdrawn.Float64
 	}
