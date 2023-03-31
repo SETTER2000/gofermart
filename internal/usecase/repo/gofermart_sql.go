@@ -230,6 +230,10 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer rows.Close()
 	b := entity.Balance{}
 	for rows.Next() {
