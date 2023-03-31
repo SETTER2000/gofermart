@@ -568,7 +568,7 @@ func (sr *gofermartRoutes) redirectToOrderAdd(w http.ResponseWriter, r *http.Req
 	at, err := r.Cookie("access_token")
 	// если куки нет, то ничего не делаем
 	if err == http.ErrNoCookie {
-		fmt.Errorf("error cookie, empty cookie")
+		return fmt.Errorf("error cookie, empty cookie")
 	}
 
 	jar, err := cookiejar.New(nil)
