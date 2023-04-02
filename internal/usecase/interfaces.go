@@ -23,11 +23,6 @@ type (
 		FindBalance(ctx context.Context) (*entity.Balance, error)
 		OrderUpdate(ctx context.Context, ls *entity.LoyaltyStatus) error
 		OrderUpdateUserID(ctx context.Context, ls *entity.LoyaltyStatus) error
-		Shorten(context.Context, *entity.Gofermart) (string, error)
-		LongLink(context.Context, *entity.Gofermart) (string, error)
-		ShortLink(context.Context, *entity.Gofermart) (*entity.Gofermart, error)
-		UserAllLink(ctx context.Context, u *entity.User) (*entity.User, error)
-		UserDelLink(ctx context.Context, u *entity.User) error
 		ReadService() error
 		SaveService() error
 	}
@@ -46,11 +41,6 @@ type (
 		Balance(context.Context) (*entity.Balance, error)
 		UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error
 		UpdateOrderUserID(ctx context.Context, ls *entity.LoyaltyStatus) error
-		Post(context.Context, *entity.Gofermart) error
-		Put(context.Context, *entity.Gofermart) error
-		Get(context.Context, *entity.Gofermart) (*entity.Gofermart, error)
-		GetAll(context.Context, *entity.User) (*entity.User, error)
-		Delete(context.Context, *entity.User) error
 		Read() error
 		Save() error
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/SETTER2000/gofermart/config"
 	"github.com/SETTER2000/gofermart/internal/entity"
-	"github.com/SETTER2000/gofermart/scripts"
 	"github.com/jackc/pgerrcode"
 	_ "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -281,36 +280,6 @@ func (i *InSQL) GetByID(ctx context.Context, l string) (*entity.Authentication, 
 	return &a, nil
 }
 
-func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error) {
-	var slug, url, id string
-
-	q := `SELECT slug, url, user_id FROM gofermart WHERE user_id=$1 AND del=$2`
-
-	rows, err := i.w.db.Queryx(q, u.UserID, false)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-
-	l := entity.List{}
-
-	for rows.Next() {
-		err = rows.Scan(&slug, &url, &id)
-		if err != nil {
-			return nil, err
-		}
-		l.URL = url
-		l.Slug = scripts.GetHost(i.cfg.HTTP, slug)
-		u.Urls = append(u.Urls, l)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return u, nil
-}
-
 // OrderListGetUserID  вернуть список заказов по UserID
 func (i *InSQL) OrderListGetUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
 	var number, userID, uploadedAt, status string
@@ -445,23 +414,6 @@ func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, err
 	}
 
 	return &ol, nil
-}
-func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
-	q := `UPDATE gofermart SET del = $1
-	FROM (SELECT unnest($2::text[]) AS slug) AS data_table
-	WHERE gofermart.slug = data_table.slug AND gofermart.user_id=$3`
-
-	rows, err := i.w.db.Queryx(q, true, u.DelLink, u.UserID)
-	if err != nil {
-		log.Fatal(err)
-		return err
-	}
-
-	if err = rows.Err(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // UpdateOrder обновление заказа
