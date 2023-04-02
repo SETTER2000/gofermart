@@ -1,0 +1,29 @@
+@startuml
+
+!theme plain
+top to bottom direction
+skinparam linetype ortho
+
+class balance {
+   number: numeric
+   user_id: uuid
+   sum: real
+   processed_at: timestamp(0) with time zone
+   id: integer
+}
+class order {
+   user_id: uuid
+   uploaded_at: timestamp(0) with time zone
+   accrual: real
+   status: state
+   number: numeric
+}
+class user {
+   login: varchar(100)
+   encrypted_passwd: varchar(100)
+   user_id: uuid
+}
+
+balance  -[#595959,plain]-^  user    : "user_id"
+order    -[#595959,plain]-^  user    : "user_id"
+@enduml
