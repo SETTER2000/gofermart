@@ -17,7 +17,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"io"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"os"
@@ -168,7 +167,7 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 		fmt.Printf("error decrypt cookie: %e", err)
 		return "", err
 	}
-	//fmt.Printf("User ID расшифрованный из токена:: %s\n", dt)
+
 	_, err = sr.s.UserFindByID(r.Context(), dt)
 	if err != nil {
 		return "", err
@@ -191,7 +190,6 @@ func (sr *gofermartRoutes) IsAuthenticated(w http.ResponseWriter, r *http.Reques
 // @Failure     500 {object} response — внутренняя ошибка сервера
 // @Router      /user/orders [post]
 func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Request) {
-	log.Printf("--------ORDER ADD handleUserOrders------\n")
 	userID, err := sr.IsAuthenticated(w, r)
 	if err != nil {
 		sr.respond(w, r, http.StatusUnauthorized, nil)
@@ -303,7 +301,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	o := entity.Order{}
 	o.Number, _ = strconv.Atoi(wd.NumOrder)
 	if !luna.Luna(o.Number) { // цветы, цветы
-		fmt.Printf("luna работает, неверный формат номера заказа: %v", o.Number)
 		sr.respond(w, r, http.StatusUnprocessableEntity, "неверный формат номера заказа")
 		return
 	}

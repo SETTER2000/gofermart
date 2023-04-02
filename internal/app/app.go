@@ -30,7 +30,7 @@ func Run(cfg *config.Config) {
 	// Use case
 	var gofermartUseCase usecase.Gofermart
 	if !scripts.CheckEnvironFlag("DATABASE_URI", cfg.Storage.ConnectDB) {
-		l.Error(fmt.Errorf("app - environment not set DATABASE_URI: %v\n", cfg.Storage.ConnectDB))
+		l.Error(fmt.Errorf("app - environment not set DATABASE_URI: %v", cfg.Storage.ConnectDB))
 		os.Exit(1)
 	} else {
 		l.Info("DB SQL - is work...")
