@@ -23,7 +23,6 @@ import (
 	"net/http/cookiejar"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -123,16 +122,14 @@ func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		//http.Error(w, err.Error(), http.StatusInternalServerError)
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	data := entity.Gofermart{Config: sr.cfg}
 	data.URL = string(body)
-	//data.URL, _ = scripts.Trim(string(body), "")
 	data.Slug = scripts.UniqueString()
-	//data.UserID = r.Context().Value("access_tokensr.cfg.Cookie.AccessTokenName).(string)
 	gofermart, err := sr.s.LongLink(ctx, &data)
+
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
 			data2 := entity.Gofermart{Config: sr.cfg, URL: data.URL}
@@ -152,9 +149,6 @@ func (sr *gofermartRoutes) longLink(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d := scripts.GetHost(sr.cfg.HTTP, gofermart)
-	//w.Header().Set("Content-Type", http.DetectContentType(body))
-	//w.WriteHeader(http.StatusCreated)
-	//w.Write([]byte(d))
 	sr.respond(w, r, http.StatusCreated, d)
 }
 
@@ -211,7 +205,7 @@ func (sr *gofermartRoutes) shorten(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &data); err != nil {
 		panic(err)
 	}
-	//data.UserID = r.Context().Value(sr.cfg.Cookie.AccessTokenName).(string)
+
 	resp.URL, err = sr.s.Shorten(ctx, &data)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
@@ -434,55 +428,9 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	//w.Header().Set("Content-Type", http.DetectContentType(body))
-	//w.WriteHeader(http.StatusAccepted)
-	//w.Write([]byte("Новый номер заказа принят в обработку!"))
-
 	w.Header().Set("Content-Type", "text/plain")
-	//w.Header().Add("Content-Encoding", "gzip")
-	//w.Header().Set("Location", gofermart)
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte("новый номер заказа принят в обработку"))
-	//sr.respond(w, r, http.StatusAccepted, gofermart)
-}
-
-// Взаимодействие с системой расчёта начислений баллов лояльности
-func (sr *gofermartRoutes) accrualClient(ctx context.Context, order string) (*entity.LoyaltyStatus, error) {
-	order = strings.TrimSpace(order)
-	if order == "" {
-		return nil, fmt.Errorf("error empty arg link")
-	}
-	acc := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
-	if len(acc) < 1 {
-		acc = sr.cfg.HTTP.Accrual
-	}
-
-	link := fmt.Sprintf("%s/api/orders/%s", acc, order)
-	req, _ := http.NewRequestWithContext(ctx, "GET", link, nil)
-
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка подключения к клиенту Accrual:: %e", err)
-	}
-
-	fmt.Printf("CONNECT ACCRUAL status: %d  %s\n", resp.StatusCode, link)
-	lp := entity.LoyaltyStatus{}
-	if resp.StatusCode == 204 {
-		lp.Status = "NEW"
-		lp.Accrual = 0
-		return &lp, nil
-	}
-
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	json.Unmarshal(body, &lp)
-
-	return &lp, nil
 }
 
 // @Summary     Return JSON
@@ -504,11 +452,6 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 		sr.respond(w, r, http.StatusUnauthorized, nil)
 		return
 	}
-	// проверка правильного формата запроса
-	//if !sr.ContentTypeCheck(w, r, "application/json") {
-	//	sr.respond(w, r, http.StatusBadRequest, "неверный формат запроса")
-	//	return
-	//}
 
 	wd := entity.Withdraw{}
 	defer r.Body.Close()
@@ -516,12 +459,13 @@ func (sr *gofermartRoutes) handleUserBalanceWithdraw(w http.ResponseWriter, r *h
 	if err != nil {
 		panic(err)
 	}
+
 	if err = json.Unmarshal(body, &wd); err != nil {
 		sr.error(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	o := entity.Order{}
 
+	o := entity.Order{}
 	o.Number, _ = strconv.Atoi(wd.NumOrder)
 	if !luna.Luna(o.Number) { // цветы, цветы
 		fmt.Printf("luna работает, неверный формат номера заказа: %v", o.Number)
@@ -590,12 +534,7 @@ func (sr *gofermartRoutes) redirectToOrderAdd(w http.ResponseWriter, r *http.Req
 	if resp.StatusCode != 200 && resp.StatusCode != 202 {
 		return fmt.Errorf("status %d: вы не можете использовать данный номер заказа ", resp.StatusCode)
 	}
-	//body, err = io.ReadAll(resp.Body)
-	//if err != nil {
-	//	return fmt.Errorf("error response post query: %e", err)
-	//}
-	//
-	//json.Unmarshal()
+
 	return nil
 }
 

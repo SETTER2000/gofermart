@@ -30,8 +30,6 @@ func Run(cfg *config.Config) {
 	// Use case
 	var gofermartUseCase usecase.Gofermart
 	if !scripts.CheckEnvironFlag("DATABASE_URI", cfg.Storage.ConnectDB) {
-		l.Info("DB SQL - is work II ...")
-		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
 		if cfg.FileStorage == "" {
 			l.Warn("In memory storage!!!")
 			gofermartUseCase = usecase.New(repo.NewInMemory(cfg))
@@ -44,14 +42,6 @@ func Run(cfg *config.Config) {
 		}
 	} else {
 		l.Info("DB SQL - is work...")
-		fmt.Printf("CONNECT::\n ACCRUAL_SYSTEM_ADDRESS:: %s\n RUN_ADDRESS:: %s\n DATABASE_URI:: %s\n cfg.HTTP.Accrual:: %s\n cfg.HTTP."+
-			"ServerAddress:: %s\n  cfg.Storage.ConnectDB:: %s\n",
-			os.Getenv("ACCRUAL_SYSTEM_ADDRESS"),
-			os.Getenv("RUN_ADDRESS"),
-			os.Getenv("DATABASE_URI"),
-			cfg.HTTP.Accrual,
-			cfg.HTTP.ServerAddress,
-			cfg.Storage.ConnectDB)
 		gofermartUseCase = usecase.New(repo.NewInSQL(cfg))
 	}
 

@@ -102,16 +102,13 @@ func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
 			time.Sleep(time.Second)
 			r, err := a.LoyaltyFind(s.Order)
 			if err != nil {
-				fmt.Printf("ERROR to loop:: %e", err)
 				break
 			}
 
 			if r.Status == "PROCESSED" || r.Status == "INVALID" {
 				b <- *r
-				fmt.Printf("NEW DATA:: %v\n", *r)
 				break
 			}
-
 			b <- *r
 		}
 		close(b)
@@ -121,9 +118,8 @@ func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
 		ls.Order = c.Order
 		ls.Accrual = c.Accrual
 		ls.Status = c.Status
-		fmt.Printf(":> %v\n", c)
+		//fmt.Printf(":> %v\n", c)
 	}
 
-	fmt.Printf("EXIT OPROS:: %v %v %v\n", ls.Order, ls.Accrual, ls.Status)
 	return &ls
 }

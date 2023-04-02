@@ -92,34 +92,20 @@ func (i *InSQL) Post(ctx context.Context, sh *entity.Gofermart) error {
 
 // OrderIn записать новый заказ
 func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
-	// шаг 1 — объявляем транзакцию
-
-	log.Printf("---------------------------------- ORDER INSERT ---------------------------\n")
-	log.Printf("-----UserID: %v Number: %v Accrual: %v\n-----------", o.UserID, o.Number, o.Accrual)
-
 	tx, err := i.w.db.Begin()
 	if err != nil {
 		return err
 	}
-	// шаг 1.1 — если возникает ошибка, откатываем изменения
+
 	defer tx.Rollback()
 
-	// шаг 2 — готовим инструкцию
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO public.order (number, user_id, uploaded_at, status, accrual) VALUES ($1,$2, now(),$3,$4)")
 	if err != nil {
 		return err
 	}
-	// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
-	defer stmt.Close()
-	// шаг 2.2 — готовим инструкцию
-	stmt2, err := tx.PrepareContext(ctx, "INSERT INTO bal (user_id, current) VALUES ($1,$2)")
-	if err != nil {
-		return err
-	}
-	// шаг 2.3 — не забываем закрыть инструкцию, когда она больше не нужна
-	defer stmt2.Close()
 
-	// шаг 3
+	defer stmt.Close()
+
 	_, err = stmt.ExecContext(ctx, o.Number, o.UserID, o.Status, o.Accrual)
 	if err, ok := err.(*pgconn.PgError); ok {
 		if err.Code == pgerrcode.UniqueViolation {
@@ -127,38 +113,12 @@ func (i *InSQL) OrderIn(ctx context.Context, o *entity.Order) error {
 		}
 		return err
 	}
-	// готовим контейнер для проверок
-	check := new(string)
-	// готовим стейтмент
-	stmt3, err := tx.Prepare("SELECT user_id FROM bal WHERE user_id = $1")
-	if err != nil {
-		return err
-	}
-	for {
-		// проверяем, есть ли user_id в базе
-		row := stmt3.QueryRow(o.UserID)
-		// хотим убедиться, нашлось или нет
-		if err := row.Scan(check); err != sql.ErrNoRows {
-			break
-		}
 
-		// insert
-		_, err = stmt2.ExecContext(ctx, o.UserID, o.Accrual)
-		if err != nil {
-			return err
-		}
-	}
-
-	log.Printf("--- OrderIn -------------- OK!")
-	// шаг 4 — сохраняем изменения
 	return tx.Commit()
 }
 
 // OrderPostBalanceWithdraw запрос на списание средств
 func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ СРЕДСТВ OrderPostBalanceWithdraw - 1 Order: %v UserID: %v\n", wd.Order, wd.UserID)
-
-	// проверка баланса
 	balance, err := i.Balance(ctx)
 	if err != nil {
 		log.Fatalf("balance error %e", err)
@@ -169,215 +129,31 @@ func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdra
 		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
 	}
 
-	// шаг 1 — объявляем транзакцию
 	tx, err := i.r.db.Begin()
 
 	if err != nil {
 		return err
 	}
-	// шаг 1.1 — если возникает ошибка, откатываем изменения
+
 	defer tx.Rollback()
 
-	// шаг 2 — готовим инструкцию
 	stmt, err := tx.PrepareContext(ctx, "INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
 	if err != nil {
 		return err
 	}
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ. ТРАНЗАКЦИЯ - INSERT -1 :: %v UserID: %v\n", wd, wd.UserID)
-	// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
+
 	defer stmt.Close()
 
-	// шаг 2.2 — готовим инструкцию
-	stmt3, err := tx.PrepareContext(ctx, "UPDATE bal SET current=$2, withdraw=$3 WHERE user_id=$1")
-	if err != nil {
-		return err
-	}
-	defer stmt3.Close()
-
-	//stmt4, err := tx.PrepareContext(ctx, "INSERT INTO \"order\" (number, user_id, uploaded_at, accrual, status) VALUES ($1,$2, now(),$3,$4)")
-	//if err != nil {
-	//	return err
-	//}
-	//defer stmt4.Close()
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ. ТРАНЗАКЦИЯ - INSERT -2 :: UserID: %v Order: %v Sum: %v\n", wd.UserID, wd.Number, wd.Sum)
-	// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
-
-	// шаг 3 — указываем, что каждое видео будет добавлено в транзакцию
 	_, err = stmt.ExecContext(ctx, wd.NumOrder, wd.UserID, wd.Sum)
 	if err, ok := err.(*pgconn.PgError); ok {
-		fmt.Printf("INSERT ERR -- ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 3 ERR:: %v UserID: %v\n", wd, wd.UserID)
 		if err.Code == pgerrcode.UniqueViolation {
 			return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
 		}
 		return err
 	}
-	//
-	//rows, err := stmt2.QueryRow(ctx, wd.UserID, wd.Sum)
-	//if err != nil {
-	//	return err
-	//}
 
-	//rows, err := i.r.db.Query("SELECT current - $2, withdraw + $2 FROM bal WHERE user_id = $1")
-	//stmt2, err := tx.PrepareContext(ctx, "SELECT current - $2, withdraw + $2 FROM bal WHERE user_id = $1")
-	//if err != nil {
-	//	return err
-	//}
-
-	//q := `SELECT number, user_id, uploaded_at, accrual, status FROM "order" WHERE number=:number`
-	//q := `SELECT current,  withdraw + $2 AS withdraw FROM bal WHERE user_id = $1`
-	q := `SELECT current  AS current ,  withdraw + $2 AS withdraw FROM bal WHERE user_id = $1`
-	//rows, err := i.w.db.Queryx(q, o.Number)
-	rows, err := i.w.db.Query(q, wd.UserID, wd.Sum)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-	b := entity.Balance{}
-	for rows.Next() {
-		err := rows.Scan(&b.Current, &b.Withdraw)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	_, err = stmt3.ExecContext(ctx, wd.UserID, &b.Current, &b.Withdraw)
-	if err != nil {
-		return err
-	}
-
-	// number, user_id, accrual, status
-	//_, err = stmt4.ExecContext(ctx, wd.Number, wd.UserID, &b.Withdraw)
-	//if err != nil {
-	//	return err
-	//}
-	//o := entity.Order{
-	//	UserID:  wd.UserID,
-	//	Number:  wd.Number,
-	//	Status:  "NEW",
-	//	Accrual: -wd.Sum,
-	//}
-	//err = i.OrderIn(ctx, &o)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// INSERT
-	//stmt, err := i.w.db.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-
-	//_, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum)
-	//if err, ok := err.(*pgconn.PgError); ok {
-	//	fmt.Printf("INSERT ERR -- ЗАПРОС НА СПИСАНИЕ СРЕДСТВ - 3 ERR:: %v UserID: %v\n", wd, wd.UserID)
-	//	if err.Code == pgerrcode.UniqueViolation {
-	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
-	//	}
-	//	return err
-	//}
-
-	//stmt2, err := i.w.db.Prepare("UPDATE \"order\" SET accrual = accrual - $3 WHERE number = $1 AND user_id=$2 RETURNING accrual")
-	//_, err = stmt2.Exec(wd.NumOrder, wd.UserID, wd.Sum)
-	//if err, ok := err.(*pgconn.PgError); ok {
-	//	fmt.Printf("UPDATE ERR -- ЗАПРОС НА СПИСАНИЕ СРЕДСТВ -4:: %v UserID: %v\n", wd, wd.UserID)
-	//	if err.Code == pgerrcode.UniqueViolation {
-	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
-	//	}
-	//	return err
-	//}
-	fmt.Printf("ЗАПРОС НА СПИСАНИЕ. ТРАНЗАКЦИЯ - OK\n")
-	// шаг 4 — сохраняем изменения
 	return tx.Commit()
 }
-
-// OrderPostBalanceWithdraw запрос на списание средств
-//func (i *InSQL) OrderPostBalanceWithdraw(ctx context.Context, wd *entity.Withdraw) error {
-//	o := entity.Order{}
-//	var accrual float32
-//
-//	q := `SELECT accrual - $3 FROM public.order WHERE number = $1 AND user_id=$2`
-//	rows, _ := i.w.db.Queryx(q, wd.NumOrder, wd.UserID, wd.Sum)
-//	err := rows.Err()
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//
-//	defer rows.Close()
-//	for rows.Next() {
-//		err := rows.Scan(&accrual)
-//		if err != nil {
-//			log.Fatal(err)
-//		}
-//	}
-//
-//	if accrual <= 0 {
-//		return NewConflictError("old url", "", ErrInsufficientFundsAccount)
-//	}
-//
-//	fmt.Printf("SUM INSERT: %v", wd.Sum)
-//
-//	tx, err := i.w.db.Begin()
-//	if err != nil {
-//		return err
-//	}
-//
-//	stmt, err := tx.Prepare("INSERT INTO balance (number, user_id, sum, processed_at) VALUES ($1,$2,$3, now())")
-//	if err != nil {
-//		return err
-//	}
-//
-//	stmt2, err := tx.Prepare("UPDATE \"order\" SET accrual = accrual - $3 WHERE number = $1 AND user_id=$2 RETURNING accrual")
-//	if err != nil {
-//		return err
-//	}
-//
-//	o.Accrual = accrual
-//	fmt.Printf("RETURNING accrual:: %v\n", o.Accrual)
-//
-//	defer stmt.Close()
-//
-//	if _, err = stmt.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
-//		if err = tx.Rollback(); err != nil {
-//			log.Fatalf("insert drivers: unable to rollback: %v", err)
-//		}
-//		return err
-//	}
-//
-//	if _, err = stmt2.Exec(wd.NumOrder, wd.UserID, wd.Sum); err != nil {
-//		if err = tx.Rollback(); err != nil {
-//			log.Fatalf("update drivers: unable to rollback: %v", err)
-//		}
-//		return err
-//	}
-//
-//	if err := tx.Commit(); err != nil {
-//		log.Fatalf("insert and update drivers: unable to commit: %v", err)
-//		return err
-//	}
-//
-//	return nil
-//}
-
-// BalanceWriteOff запрос на списание средств
-//func (i *InSQL) BalanceWriteOff(ctx context.Context, o *entity.Withdraw) error {
-//	// TODO queue 😇
-//	//stmt, err := i.w.db.Prepare("INSERT INTO public.order (number, user_id, uploaded_at, status, accrual) VALUES ($1,$2, now(),$3,$4)")
-//	//if err != nil {
-//	//	log.Fatal(err)
-//	//}
-//	//_, err = stmt.Exec(o.Number, o.UserID, o.Status, o.Accrual)
-//	//if err, ok := err.(*pgconn.PgError); ok {
-//	//	if err.Code == pgerrcode.UniqueViolation {
-//	//		return NewConflictError("old url", "http://testiki", ErrAlreadyExists)
-//	//	}
-//	//	return err
-//	//}
-//	return nil
-//}
 
 func (i *InSQL) Put(ctx context.Context, sh *entity.Gofermart) error {
 	return i.Post(ctx, sh)
@@ -414,18 +190,14 @@ func (i *InSQL) Get(ctx context.Context, sh *entity.Gofermart) (*entity.Gofermar
 	sh.URL = url
 	sh.UserID = id
 	sh.Del = del
-	log.Printf("--- Get:: %v", sh)
+
 	return sh, nil
 }
 
 // OrderGetByNumber поиск по ID ордера
 func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.OrderResponse, error) {
-	//var number, userID, uploadedAt, status string
-	//var accrual float32
 	or := entity.OrderResponse{}
-	//q := `SELECT number, user_id, uploaded_at, status, accrual FROM "order" WHERE number=$1`
 	q := `SELECT number, user_id, uploaded_at, accrual, status FROM "order" WHERE number=:number`
-	//rows, err := i.w.db.Queryx(q, o.Number)
 	rows, err := i.w.db.NamedQuery(q, o)
 	if err != nil {
 		log.Fatal(err)
@@ -442,7 +214,7 @@ func (i *InSQL) OrderGetByNumber(ctx context.Context, o *entity.Order) (*entity.
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("--- OrderGetByNumber:: %v", &or)
+
 	return &or, nil
 }
 
@@ -471,7 +243,7 @@ func (i *InSQL) GetByLogin(ctx context.Context, l string) (*entity.Authenticatio
 	a.ID = userID
 	a.Login = login
 	a.EncryptPassword = encrypt
-	log.Printf("--- GetByLogin:: %v", &a)
+
 	return &a, nil
 }
 
@@ -505,7 +277,7 @@ func (i *InSQL) GetByID(ctx context.Context, l string) (*entity.Authentication, 
 	a.ID = userID
 	a.Login = login
 	a.EncryptPassword = encrypt
-	log.Printf("--- GetByID:: %v", &a)
+
 	return &a, nil
 }
 
@@ -535,13 +307,12 @@ func (i *InSQL) GetAll(ctx context.Context, u *entity.User) (*entity.User, error
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	log.Printf("--- GetAll:: %v", u)
+
 	return u, nil
 }
 
 // OrderListGetUserID  вернуть список заказов по UserID
 func (i *InSQL) OrderListGetUserID(ctx context.Context, u *entity.User) (*entity.OrderList, error) {
-	log.Printf("user/orders OrderGetAll: %v\n", u)
 	var number, userID, uploadedAt, status string
 	var accrual float32
 
@@ -572,7 +343,7 @@ func (i *InSQL) OrderListGetUserID(ctx context.Context, u *entity.User) (*entity
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	log.Printf("--- OrderListGetUserID:: %v", &ol)
+
 	return &ol, nil
 }
 
@@ -609,7 +380,7 @@ func (i *InSQL) OrderListGetStatus(ctx context.Context) (*entity.OrderList, erro
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	log.Printf("--- OrderListGetStatus %v\n", ol)
+
 	return &ol, nil
 }
 
@@ -618,7 +389,6 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 	var current, withdrawn sql.NullFloat64
 
 	q := `SELECT SUM(accrual) AS current, (SELECT SUM(sum) FROM "balance" WHERE user_id=$1) AS withdrawn FROM "order" WHERE user_id=$1`
-	//q := `SELECT current, withdraw FROM bal WHERE user_id=$1`
 
 	rows, err := i.w.db.Queryx(q, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
@@ -634,15 +404,13 @@ func (i *InSQL) Balance(ctx context.Context) (*entity.Balance, error) {
 		}
 
 		b.Current = float32(math.Round((current.Float64-withdrawn.Float64)*100) / 100)
-		//b.Current = float32(current.Float64)
 		b.Withdraw = float32(math.Round(withdrawn.Float64*100) / 100)
-		//b.Withdraw = withdrawn.Float64
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	fmt.Printf("BALANCE CUR: %f WITHDRAW %f\n", b.Current, b.Withdraw)
+
 	return &b, nil
 }
 func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, error) {
@@ -651,6 +419,7 @@ func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, err
 
 	q := `SELECT number, user_id, sum, processed_at FROM "balance" WHERE user_id=$1 ORDER BY processed_at`
 	us := ctx.Value(i.cfg.Cookie.AccessTokenName).(string)
+
 	rows, err := i.w.db.Queryx(q, us)
 	if err != nil {
 		log.Fatal(err)
@@ -668,14 +437,13 @@ func (i *InSQL) BalanceGetAll(ctx context.Context) (*entity.WithdrawalsList, err
 		wd.NumOrder = number
 		wd.Sum = sum
 		wd.ProcessedAt = processedAt
-		log.Printf("GET ALL BALANCE. UserID: %v Sum: %v Number: %v\n", us, wd.Sum, wd.NumOrder)
 		ol = append(ol, wd)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	log.Printf("--- GetAllBallans:: %v", &ol)
+
 	return &ol, nil
 }
 func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
@@ -698,13 +466,9 @@ func (i *InSQL) Delete(ctx context.Context, u *entity.User) error {
 
 // UpdateOrder обновление заказа
 func (i *InSQL) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error {
-	log.Printf("UPDATE ORDER->from Accrual...")
 	q := `UPDATE "order" SET status=:status, accrual=:accrual WHERE number=:order`
-	//q2 := `UPDATE bal SET current=$1 WHERE user_id=$3`
 
-	//rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order)
 	rows, err := i.w.db.NamedQuery(q, ls)
-	//rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -714,80 +478,29 @@ func (i *InSQL) UpdateOrder(ctx context.Context, ls *entity.LoyaltyStatus) error
 		return err
 	}
 
-	//rows2, err := i.w.db.NamedQuery(q2, ls)
-	//if err != nil {
-	//	log.Fatal(err)
-	//	return err
-	//}
-	//
-	//if err = rows2.Err(); err != nil {
-	//	return err
-	//}
-
-	//// шаг 2 — готовим инструкцию
-	//stmt2, err := tx.Prepare("UPDATE bal SET current=$1 WHERE user_id=$3")
-	//if err != nil {
-	//	return err
-	//}
-	//// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
-	//defer stmt2.Close()
-
-	fmt.Printf("...UPDATE ORDER<-from Accrual::%v\n", ls)
 	return nil
 }
 
 // UpdateOrderUserID обновление заказа по id пользователя
 func (i *InSQL) UpdateOrderUserID(ctx context.Context, ls *entity.LoyaltyStatus) error {
-	log.Printf("UPDATE ORDER, USER_ID from Accrual...")
-
-	// шаг 1 — объявляем транзакцию
 	tx, err := i.w.db.Begin()
 	ct := context.Background()
 	userID := ctx.Value(i.cfg.Cookie.AccessTokenName).(string)
 	if err != nil {
 		return err
 	}
-	// шаг 1.1 — если возникает ошибка, откатываем изменения
 	defer tx.Rollback()
 
-	// шаг 2 — готовим инструкцию
 	stmt, err := tx.PrepareContext(ct, "UPDATE \"order\" SET status=$1, accrual=$2 WHERE number=$3 AND user_id=$4")
 	if err != nil {
 		return err
 	}
-	// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
 	defer stmt.Close()
 
-	// шаг 2 — готовим инструкцию
-	stmt2, err := tx.PrepareContext(ct, "UPDATE bal SET current=$1 WHERE user_id=$2")
-	if err != nil {
-		return err
-	}
-	// шаг 2.1 — не забываем закрыть инструкцию, когда она больше не нужна
-	defer stmt2.Close()
-
-	// шаг 3
 	if _, err = stmt.Exec(ls.Status, ls.Accrual, ls.Order, userID); err != nil {
 		return err
 	}
 
-	// шаг 3.1
-	if _, err = stmt2.Exec(ls.Accrual, userID); err != nil {
-		return err
-	}
-
-	//q := `UPDATE "order" SET status=$1, accrual=$2 WHERE number=$3 AND user_id=$4`
-	//rows, err := i.w.db.Queryx(q, ls.Status, ls.Accrual, ls.Order, ctx.Value(i.cfg.Cookie.AccessTokenName).(string))
-	//if err != nil {
-	//	log.Fatal(err)
-	//	return err
-	//}
-	//
-	//if err = rows.Err(); err != nil {
-	//	return err
-	//}
-	fmt.Printf("...UPDATE ORDER, USER_ID ::%v\n", ls)
-	// шаг 4 — сохраняем изменения
 	return tx.Commit()
 }
 
@@ -835,18 +548,6 @@ CREATE TABLE IF NOT EXISTS public.balance
     user_id      uuid NOT NULL,
     sum          float4 NOT NULL CHECK (sum >= 0),
     processed_at TIMESTAMP(0) WITH TIME ZONE,
---     FOREIGN KEY (number) REFERENCES public."order" (number)
---         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
-    FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
-        MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION
---     PRIMARY KEY(number, user_id, sum)
-);
-CREATE TABLE IF NOT EXISTS public.bal
-(
-    id           SERIAL PRIMARY KEY,
-    user_id      uuid    NOT NULL,
-    current      float4 DEFAULT 0 ,
-    withdraw     float4 DEFAULT 0,
 --     FOREIGN KEY (number) REFERENCES public."order" (number)
 --         MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION,
     FOREIGN KEY (user_id) REFERENCES public."user" (user_id)
