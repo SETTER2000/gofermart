@@ -229,7 +229,7 @@ Content-Length: 0
     
     {
     	"current": 500.5,
-    	"withdraw": 42
+    	"withdrawn": 42
     }
     ```
 
