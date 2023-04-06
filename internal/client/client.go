@@ -9,6 +9,7 @@ import (
 	"github.com/SETTER2000/gofermart/internal/usecase"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -43,17 +44,22 @@ func (a *AClient) LoyaltyFind(order string) (*entity.LoyaltyStatus, error) {
 		return nil, fmt.Errorf("error empty arg link")
 	}
 	link := a.accrualLink(order)
-	req, _ := http.NewRequestWithContext(a.ctx, "GET", link, nil)
-
+	req, err := http.NewRequestWithContext(a.ctx, "GET", link, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GET: шибка подключения к клиенту Accrual:: %e", err)
+	}
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка подключения к клиенту Accrual:: %e", err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	ls := entity.LoyaltyStatus{}
@@ -77,7 +83,6 @@ func (a *AClient) Start() error {
 	}
 
 	var l entity.LoyaltyStatus
-	lCh := make(chan entity.LoyaltyStatus, 1)
 
 	for _, o := range *ol {
 		time.Sleep(1 * time.Second)
@@ -85,22 +90,20 @@ func (a *AClient) Start() error {
 			l.Status = o.Status
 			l.Accrual = o.Accrual
 			l.Order = o.Number
-			lCh <- l
-			l = *a.Run(lCh)
-			a.s.OrderUpdate(ctx, &l) // обновить заказ
+			lst := *a.Run(l)
+			a.s.OrderUpdate(ctx, &lst) // обновить заказ
 		}(o)
 	}
 	return nil
 }
-func (a *AClient) Run(lCh chan entity.LoyaltyStatus) *entity.LoyaltyStatus {
+func (a *AClient) Run(lst entity.LoyaltyStatus) *entity.LoyaltyStatus {
 	var ls entity.LoyaltyStatus
 	b := make(chan entity.LoyaltyStatus, 1)
 
 	go func() {
-		s := <-lCh
 		for {
 			time.Sleep(time.Second)
-			r, err := a.LoyaltyFind(s.Order)
+			r, err := a.LoyaltyFind(lst.Order)
 			if err != nil {
 				break
 			}

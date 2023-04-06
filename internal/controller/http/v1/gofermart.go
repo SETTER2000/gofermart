@@ -226,13 +226,9 @@ func (sr *gofermartRoutes) handleUserOrders(w http.ResponseWriter, r *http.Reque
 	}
 	ctx := r.Context()
 	if lp.Status != "PROCESSED" && lp.Status != "INVALID" {
-		lCh := make(chan entity.LoyaltyStatus, 1)
-		// входные значения кладём в inputCh
-		go func(l entity.LoyaltyStatus) {
-			lCh <- l
-			l = *sr.c.Run(lCh)
+		go func(lst entity.LoyaltyStatus) {
+			l := *sr.c.Run(lst)
 			sr.s.OrderUpdateUserID(ctx, &l)
-			close(lCh)
 		}(*lp)
 	}
 	o.Accrual = lp.Accrual
