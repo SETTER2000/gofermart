@@ -1,0 +1,14 @@
+app:
+  name: 'gofermart'
+  version: '0.1.0'
+  access_token_name: 'user_id'
+  expiration_time: '2023-04-19T00:00:01Z'
+cookie:
+  secret_key: 'erter09gj0f9g'
+  access_token_name: 'access_token'
+http:
+#  port: '8080'
+#  base_url: 'http://localhost:8080'
+logger:
+  log_level: 'debug'
+  rollbar_env: 'gofermart'
