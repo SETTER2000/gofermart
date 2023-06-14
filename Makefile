@@ -19,6 +19,10 @@ BIN_NAME=gophermart
 # Подключение к базе данных
 DB=postgres://gofermart:DB_gf-2023@127.0.0.1:5432/gofermart?sslmode=disable
 
+# HELP по флагам
+short_h:
+	./$(APP_DIR)/$(BIN_NAME) -h
+
 # Запустить сервис gofermart сконфигурировав его от файла json (config/config.json)
 conf:
 	./$(APP_DIR)/$(BIN_NAME) -c config/config_tt.json

@@ -2,8 +2,9 @@
 
 Накопительная система лояльности «Гофермарт»
 
+## Команды Makefile
 ### Start
- Запустить accrual, перед запуском gofermart в отдельном терминале
+ Запустить accrual. Перед запуском gofermart в отдельном терминале
 ```azure
 make accrual
 ```
@@ -11,4 +12,9 @@ make accrual
 Старт gofermart
 ```azure
 make short_d
+```
+
+HELP по флагам
+```azure
+make short_h
 ```
