@@ -95,6 +95,7 @@ func (sr *gofermartRoutes) handleUserCreate(w http.ResponseWriter, r *http.Reque
 		sr.error(w, r, http.StatusBadRequest, err)
 		return
 	}
+
 	err = sr.s.Register(ctx, a)
 	if err != nil {
 		if errors.Is(err, repo.ErrAlreadyExists) {
